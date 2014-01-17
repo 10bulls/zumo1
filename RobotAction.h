@@ -223,6 +223,66 @@ public:
   float distance_max;
 };
 
+class ActionScan2 : public ActionSpin
+{
+public:
+  ActionScan2(boolean dir=CW, float degree=180, int pwm=SPEED_SLOW, float distance=30, unsigned long d=0 ) : ActionSpin(dir,degree,pwm,d)
+  {
+    distance_target = distance;
+  }
+
+  virtual void start()
+  {
+    ActionSpin::start();
+    degree_ok = 0;
+    distance_ok = false;
+  }
+
+  virtual boolean loop()
+  {
+    if (!ActionSpin::loop()) return false; 
+    
+    if (robot.proximity->distance >= distance_target)
+    {
+      if (distance_ok)
+      {
+        // if been OK for 5? degrees, end action
+        if (abs(robot.imu->degrees - degree_ok) >= 15)
+        {
+          return false;
+        }
+      }
+      else
+      {
+        distance_ok = true;
+        degree_ok = robot.imu->degrees;
+      }
+    }
+    else
+    {
+      distance_ok = false;
+    }
+ 
+    return true;
+  }
+
+  virtual void end()
+  {
+    ActionSpin::end();
+  }
+
+  virtual void dump()
+  {
+    robot.sout->print("scan2(");
+    robot.sout->print(direction ? "CCW," : "CW,");
+    robot.sout->print(degree_target);
+    robot.sout->println(" deg)");  
+  }
+
+  boolean distance_ok;
+  float degree_ok;
+  float distance_target;
+};
 
 class ActionMove : public RobotAction
 {

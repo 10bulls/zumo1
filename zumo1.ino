@@ -28,27 +28,7 @@ class Robot;
 #define CW      0
 #define CCW     1
 
-// #define IR_FRONT   4
 #define IR_FRONT   A2
-
-#define ACTION_REST             0
-#define ACTION_FORWARD_FAST     1
-#define ACTION_FORWARD_MED      2
-#define ACTION_FORWARD_SLOW     3
-#define ACTION_REVERSE          4
-#define ACTION_SCAN             5
-#define ACTION_CUSTOM           6
-
-#define ACTION_SCAN1            7
-#define ACTION_SCAN2            8
-#define ACTION_SCAN3            9
-#define ACTION_ROVE             10
-
-#define ACTION_SPIN            12
-#define ACTION_MOVE            13
-
-#define   AUTO                  1
-#define   MANUAL                0
 
 //int SPEED_FAST = 128;  // 0x1e
 //int SPEED_MED  = 64;
@@ -58,40 +38,18 @@ int SPEED_FAST = 0xff;  // 0x1e
 int SPEED_MED  = 128;
 int SPEED_SLOW = 64;  // 0x5a
 
-
-// int auto_mode = AUTO;
-int auto_mode = MANUAL;
-int action = ACTION_REST;
-
 //int distance_target_l = 0;
 //int distance_target_r = 0;
 
-// int action_duration = 0;
-int action_duration = -1;
 // define a circular buffer
 char serial_buffer[30];
 int iserial_buffer;
 int serial_buffer_start;
 int serial_buffer_len;
 
-unsigned long time_last;
-int time_step = 100;
-// int time_step = 250;
-
 // Motor output controllers 
 // MotorPID motor_left(MC_B1, MC_B2, ENCODER_L);
 // MotorPID motor_right(MC_A1, MC_A2, ENCODER_R);
-
-float distance_max = 0;
-
-float heading = -1;
-float heading_target = -1;
-float spin_target = 0;
-int spin_pwm = 0;
-int spin_direction = 0;
-
-#define COMPASS_ERROR 1
-
 
 ///////////////////////////////////
 
@@ -127,17 +85,21 @@ RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR);
 
 ActionRest action_rest;
 
-ActionMove action_forward_slow(FORWARD,SPEED_SLOW,10,100);
-ActionMove action_forward_med(FORWARD,SPEED_MED,10,100);
-ActionMove action_forward_fast(FORWARD,SPEED_FAST,10,100);
+#define DEFAULT_DURATION 150 // NOTE, take just over 100ms to process IR remote
+                             // so 150ms allows continuous, non jerky movements
 
-ActionMove action_reverse_slow(REVERSE,SPEED_SLOW,0,100);
-ActionMove action_reverse_med(REVERSE,SPEED_MED,0,100);
-ActionMove action_reverse_fast(REVERSE,SPEED_FAST,0,100);
+ActionMove action_forward_slow(FORWARD,SPEED_SLOW,10,DEFAULT_DURATION);
+ActionMove action_forward_med(FORWARD,SPEED_MED,10,DEFAULT_DURATION);
+ActionMove action_forward_fast(FORWARD,SPEED_FAST,10,DEFAULT_DURATION);
+
+ActionMove action_reverse_slow(REVERSE,SPEED_SLOW,0,DEFAULT_DURATION);
+ActionMove action_reverse_med(REVERSE,SPEED_MED,0,DEFAULT_DURATION);
+ActionMove action_reverse_fast(REVERSE,SPEED_FAST,0,DEFAULT_DURATION);
 
 ActionSpin action_spin;
-ActionSpin action_spin_100ms(CW,0,SPEED_SLOW,100);
+ActionSpin action_spin_100ms(CW,0,SPEED_SLOW,DEFAULT_DURATION);
 ActionSpin action_spin_45deg(CW,45,SPEED_SLOW,10000);
+ActionSpin action_fast_spin(CW,0,SPEED_FAST,4000);
 
 ActionRepel action_repel(12);
 
@@ -146,6 +108,34 @@ ActionScan action_scan(CW,34,SPEED_SLOW,3000);
 ActionScan action_scan_rove(CW,34,SPEED_SLOW,3000);
 ActionMove action_forward_rove(FORWARD,SPEED_MED,15, 5000);
 
+ActionScan2 action_scan2(CW,180,SPEED_MED,30,3000);
+ActionScan2 action_scan2_rove(CW,180,SPEED_MED,30,3000);
+ActionMove action_forward_rove2(FORWARD,SPEED_MED,15, 5000);
+
+ActionScan2 action_scan2_ccw(CCW,180,SPEED_MED,30,3000);
+ActionScan2 action_scan2_rove_ccw(CCW,180,SPEED_MED,30,3000);
+ActionMove action_forward_rove2_ccw(FORWARD,SPEED_MED,15, 5000);
+
+
+RobotAction * QuickActions []
+{
+  &action_rest,        // 0
+  &action_scan_rove,   // 1
+  &action_repel,       // 2
+  &action_scan,        // 3
+  &action_fast_spin,   // 4
+  &action_scan2,       // 5
+  &action_scan2_rove,    // 6
+  &action_scan2_ccw,       // 7
+  &action_scan2_rove_ccw    // 8
+  
+};
+
+#define NUM_QUICK_ACTIONS  sizeof(QuickActions)/sizeof(QuickActions[0])
+int quick_action = 0;
+
+//unsigned long tlast = millis();
+
 void Robot::setAction( RobotAction * action )
 {
   if (paction) paction->end();
@@ -153,7 +143,14 @@ void Robot::setAction( RobotAction * action )
     paction = action;
   else
     paction = &action_rest;
-  if (paction) paction->start();
+  if (paction) 
+  {
+//    unsigned long tnow = millis();
+//    sout->println(tnow-tlast);
+//    tlast = tnow;
+    paction->dump();
+    paction->start();
+  }
 }
 
 
@@ -175,8 +172,6 @@ void setup()
   pinMode( A3, INPUT );
   
   pinMode( BUTTON_PIN, INPUT_PULLUP );
-  
-  time_last = millis();
   
   irrecv.enableIRIn(); // Start the receiver
   
@@ -206,6 +201,13 @@ void setup()
   
   action_scan_rove.pnext_action = &action_forward_rove;
   action_forward_rove.pnext_action = &action_scan_rove;
+
+  action_scan2_rove.pnext_action = &action_forward_rove2;
+  action_forward_rove2.pnext_action = &action_scan2_rove;
+
+  action_scan2_rove_ccw.pnext_action = &action_forward_rove2_ccw;
+  action_forward_rove2_ccw.pnext_action = &action_scan2_rove_ccw;
+
 
   robot.setAction(&action_rest);
   
@@ -251,26 +253,16 @@ void loop()
   {
     if (butt)
     {
-      // TODO: cycle through action mode list (0-9)      
+      // TODO: cycle through action mode list (0-9)
+      quick_action++;
+      if (quick_action >= NUM_QUICK_ACTIONS) quick_action=0;
+      robot.setAction(QuickActions[quick_action]);
+    
     }
     button_state = butt;
     delay(20);
   }
  
-/*    
-  unsigned long tnow = millis();
-  
-  if (tnow - tprev >= 500)
-  {
-    tprev = tnow;
-    state = !state;
-    digitalWrite(LED_PIN,state);
-    
-    d = analogRead( IR_FRONT );
-    Serial.println(d);
-    
-  }
-*/
 /*
   if (distance_target_l > 0 || distance_target_r > 0)
   {
@@ -292,8 +284,6 @@ void loop()
 */
 
   // Read IR sensor
-//  proximity = analogRead( IR_FRONT );
-
   robot.proximity->read();
   
   if (robot.paction)
@@ -302,7 +292,6 @@ void loop()
     {
       robot.setAction(robot.paction->pnext_action);
     }
-    return;
   }
 }
 
@@ -439,6 +428,15 @@ void calibrate_gyro( void )
   robot.sout->println(imu.gzero.z);
 }
 
+void SetQuickAction(int i)
+{
+  if (i < NUM_QUICK_ACTIONS)
+  {
+    quick_action = i;
+    robot.setAction(QuickActions[i]);
+  }
+}
+
 void IRMenu()
 {
   boolean handled = false;
@@ -450,22 +448,22 @@ void IRMenu()
   {
     unsigned int button = IRButtonMap(results.value & 0x7ff);
 
-    robot.sout->println(button);
-    
+//    robot.sout->println(button);
+ 
     switch(button)
     {
       case BUTTON_NUM_0:
-        robot.setAction( &action_rest );
-        break;
       case BUTTON_NUM_1:
-        robot.setAction( &action_scan_rove );
-        break;
       case BUTTON_NUM_2:
-        robot.setAction( &action_repel );
-        break;      
       case BUTTON_NUM_3:
-        robot.setAction( &action_scan );
-        break;      
+      case BUTTON_NUM_4:
+      case BUTTON_NUM_5:
+      case BUTTON_NUM_6:
+      case BUTTON_NUM_7:
+      case BUTTON_NUM_8:
+      case BUTTON_NUM_9:
+        SetQuickAction(button-BUTTON_NUM_0);
+        break;
       case BUTTON_RIGHT:
         action_spin_100ms.direction = CW;
         robot.setAction( &action_spin_100ms );
@@ -516,47 +514,6 @@ void IRMenu()
 
   }
 }
-
-/*
-void action_follow()
-{
-//  robot.sout->println(proximity);
-  robot.sout->println(robot.proximity->distance);
-  
-  // proximity 50 (far)
-  // if (proximity < 50)
-  if (robot.proximity->distance > 60 || robot.proximity->distance < 8 )
-  {
-    // error or really close to target
-    robot.stop();
-  }
-  // else if (proximity >= FOLLOW_TARGET -10 && proximity <= FOLLOW_TARGET +10)
-  else if (abs(robot.proximity->distance - FOLLOW_TARGET) <= 1.0)
-  {
-    // where we want to be
-    robot.stop();
-  }
-  else
-  {
-    boolean dir = FORWARD;
-    // int diff = FOLLOW_TARGET - proximity;
-    float diff = robot.proximity->distance - FOLLOW_TARGET;
-    if (diff < 0) 
-    {
-      dir = REVERSE;
-      diff = -diff;
-    }
-    if (diff > 10.0) diff = 10.0;
-//    int speed = SPEED_FAST * diff / 255;
-      int speed = SPEED_MED * diff / 10.0;
-    
-    robot.sout->print("v=");
-    robot.sout->println(speed);
-    
-    robot.move_pwm(dir,speed);
-  }
-}
-*/
 
 void MotorTest( unsigned long duration, unsigned long pause )
 {
@@ -715,11 +672,11 @@ void parse_serial_buffer()
             }
             robot.motor_R->setPWM(value);
             break;
-            
+/*            
           case 't':
               // distance_target = value;
               action_duration = value;
-              break;
+*/              break;
 /*              
           case 'u': // left distance target
             distance_target_l = abs(value);
@@ -742,8 +699,7 @@ void parse_serial_buffer()
         break;
         
       case 'b': // backwards
-        auto_mode = MANUAL;
-        robot.reverse_pwm(SPEED_MED);
+        robot.setAction( &action_reverse_med );
         break;
         
       case 'c':  // compass callibrate
@@ -771,12 +727,10 @@ void parse_serial_buffer()
       //  break;
         
       case 'f': // forward
-        auto_mode = MANUAL;
-        robot.forward_pwm(SPEED_MED);
+        robot.setAction( &action_forward_med );
         break;
         
       case 'l': // left
-        auto_mode = MANUAL;
         command = ch;
         value_length=2;
         value=0;
@@ -818,7 +772,6 @@ void parse_serial_buffer()
         break;
 */        
       case 'r': // right
-        auto_mode = MANUAL;
         command = ch;
         value_length=2;
         value=0;
@@ -829,7 +782,7 @@ void parse_serial_buffer()
         StopIMU();
         robot.setAction( &action_rest );
         break;
-        
+/*        
       case 't': // time/duration
         auto_mode = MANUAL;
         command = ch;
@@ -837,7 +790,7 @@ void parse_serial_buffer()
         value=0;
         val_neg=0;
         break;
-        
+*/        
       case 'u': // left distance target
       case 'v': // right distance target
         command = ch;
@@ -858,36 +811,6 @@ void parse_serial_buffer()
         if (robot.paction)
         {
           robot.paction->dump();
-        }
-        else
-        {
-          switch(action)
-          {
-              case ACTION_REST:
-                  robot.sout->println("REST");
-                  break;
-              case ACTION_FORWARD_FAST:
-                  robot.sout->println("FORWARD_FAST");
-                  break;
-              case ACTION_FORWARD_MED:
-                  robot.sout->println("FORWARD_MED");
-                  break;
-              case ACTION_FORWARD_SLOW:
-                  robot.sout->println("FORWARD_SLOW");
-                  break;
-              case ACTION_REVERSE:
-                  robot.sout->println("REVERSE");
-                  break;
-              case ACTION_SCAN:
-                  robot.sout->println("SCAN");
-                  break;
-              case ACTION_CUSTOM:
-                  robot.sout->println("CUSTOM");
-                  break;
-              default:
-                  robot.sout->println("UNKNOWN");
-                  break;
-          }
         }
         
         robot.sout->print("A1=");
@@ -958,156 +881,4 @@ void parse_serial_buffer()
   serial_buffer_start = 0;
   iserial_buffer = 0;
 }
-
-void reverse(int duration)
-{
-  action = ACTION_REVERSE;
-  action_duration = duration;
-  robot.reverse_pwm(SPEED_MED);
-}
-
-void forward_fast(int duration)
-{
-  action = ACTION_FORWARD_FAST;
-  action_duration = duration;
-  robot.forward_pwm(SPEED_FAST);
-}
-
-void forward_med(int duration)
-{
-  action = ACTION_FORWARD_MED;
-  action_duration = duration;
-  robot.forward_pwm(SPEED_MED);
-}
-
-void forward_slow(int duration)
-{
-  action = ACTION_FORWARD_SLOW;
-  action_duration = duration;
-  robot.forward_pwm(SPEED_SLOW);
-}
-
-void rove()
-{
-  action = ACTION_ROVE;
-  // if (proximity < 100)
-  if (robot.proximity->distance > 60)
-  {
-    action_duration = 2000;
-    robot.forward_pwm(SPEED_FAST);
-  }
-  else
-  {
-    action_duration = 1000;
-    robot.forward_pwm(SPEED_MED);
-  }
-}
-
-/*
-void rover()
-{
-  if (action_duration == 0)
-  {
-    if (auto_mode == AUTO)
-    {
-      // finished current action
-      if (action == ACTION_REVERSE)
-      {
-        scan(10000);
-      }
-      else if (action == ACTION_SCAN)
-      {
-        rest(10000);
-      }
-      else if (action == ACTION_REST)
-      {
-        scan(5000);
-      }
-      else
-      {
-        
-      }
-    }
-    else
-    {
-      rest(-1);
-    }
-  }
-
-//  int distance = analogRead(IR_FRONT);
-  int distance = proximity;
-
-  if (distance > 500)
-  {
-      if (action == ACTION_FORWARD_FAST || 
-          action ==  ACTION_FORWARD_MED  || 
-          action ==  ACTION_FORWARD_SLOW  )
-      {
-        reverse(1000);
-      }
-  }
-  else if (distance > 400)
-  {
-      if (action == ACTION_FORWARD_FAST || 
-          action ==  ACTION_FORWARD_MED  || 
-          action ==  ACTION_FORWARD_SLOW  )
-      {
-        scan(5000);
-      }
-      else if (action == ACTION_SCAN && action_duration <= 1000)
-      {
-        forward_slow(2000);
-      }
-  }
-  else if (distance > 300)
-  {
-    if (action == ACTION_FORWARD_FAST)
-    {
-      // slow down
-      forward_med(-1);
-    }
-    else if (action == ACTION_FORWARD_MED)
-    {
-      if (distance > 350)
-            forward_slow(-1);
-      // turn left a little
-      if (motor_left.getPWM() - 5 < SPEED_SLOW)
-        scan(5000);
-      else
-        motor_left.setPWM(motor_left.getPWM() - 5);
-    }
-    else if (action == ACTION_FORWARD_SLOW)
-    {
-      if (motor_left.getPWM() - 5 < SPEED_SLOW)
-        scan(5000);
-      else
-        motor_left.setPWM(motor_left.getPWM() - 5);
-    }
-    else if (action == ACTION_SCAN && action_duration <= 2000)
-    {
-      forward_slow(2000);
-    }
-  }
-  else
-  {
-    // clear ahead
-    if (action == ACTION_SCAN)
-    {
-      forward_slow(2000);
-    }
-    else if (action_duration == 0)
-    {
-      if (action == ACTION_FORWARD_SLOW)
-      {
-        forward_med(2000);
-      }
-      else if (action == ACTION_FORWARD_MED)
-      {
-        forward_fast(2000);
-      }
-    }
-  }
-}
-*/
-
 
