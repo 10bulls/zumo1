@@ -40,7 +40,17 @@ public:
   virtual void spin_dir( boolean dir )
   {
   }
-  
+
+  virtual void setAction( RobotAction * action );
+/*
+  virtual void setAction( RobotAction * action )
+  {
+    if (paction) paction->end();
+    paction = action;
+    if (paction) paction->start();
+  }
+*/
+
   virtual void dump()
   {
     if (imu)
@@ -59,6 +69,8 @@ public:
   Stream *sout;
   RobotIMU * imu;
   RobotProximity * proximity;
+  
+  RobotAction *paction;
 };
 
 class RobotTank : public Robot
@@ -69,7 +81,7 @@ public:
     motor_L = lm;
     motor_R = rm;
   }
-
+  
   virtual void setup()
   {
     motor_L->setup();

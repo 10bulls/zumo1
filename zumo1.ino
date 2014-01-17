@@ -3,11 +3,15 @@
 #include <LSM303.h>
 #include <L3G.h>
 
+// Stream * sout = &Serial3;
+
+class RobotAction;
+class Robot;
+
 #include "RobotMotor.h"
 #include "RobotIMU.h"
 #include "RobotProximity.h"
 #include "Robot.h"
-#include "RobotAction.h"
 
 #define SCAN_PWM  0x50
 #define SCAN_DURATION  100
@@ -19,7 +23,7 @@
 // If old arduino
 //#define MOTOR_R_DIR  7
 //#define MOTOR_L_DIR  8
-// use 3 and for for Teensy (7&8 are Serial3)
+// use 3 and 4 for Teensy (7&8 are Serial3)
 #define MOTOR_R_DIR  3
 #define MOTOR_L_DIR  4
 
@@ -88,8 +92,6 @@ int time_step = 100;
 // MotorPID motor_left(MC_B1, MC_B2, ENCODER_L);
 // MotorPID motor_right(MC_A1, MC_A2, ENCODER_R);
 
-//int proximity_max = 0;
-//int proximity = 0;
 float distance_max = 0;
 
 float heading = -1;
@@ -115,13 +117,9 @@ decode_results results;
 
 ////////////////////////////////////
 
-
-
 L3G gyro;
 LSM303 compass;
 SharpIR sharpIR(IR_FRONT);
-
-
 RobotIMU imu(&compass, &gyro);
 
 boolean imu_timer_running = false;
@@ -134,6 +132,24 @@ RobotMotor motor_left( MOTOR_L_PWM, MOTOR_L_DIR );
 RobotMotor motor_right( MOTOR_R_PWM, MOTOR_R_DIR );
 
 RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR);
+
+#include "RobotAction.h"
+
+ActionRest action_rest;
+ActionSpin action_spin;
+ActionSpin action_spin_100ms(CW,0,SPEED_SLOW,100);
+ActionSpin action_spin_45deg(CW,45,SPEED_SLOW,10000);
+
+void Robot::setAction( RobotAction * action )
+{
+  if (paction) paction->end();
+  if (action)
+    paction = action;
+  else
+    paction = &action_rest;
+  if (paction) paction->start();
+}
+
 
 void setup()
 {
@@ -149,6 +165,7 @@ void setup()
   
 //  analogReference(EXTERNAL);
   pinMode( IR_FRONT, INPUT );
+  pinMode( A1, INPUT );
   pinMode( A3, INPUT );
   
   pinMode( BUTTON_PIN, INPUT_PULLUP );
@@ -181,6 +198,8 @@ void setup()
     gyro.enableDefault();
   }
 
+  robot.setAction(&action_rest);
+  
   /*
   tone(BUZZER_PIN,1000);
   delay(500);
@@ -287,6 +306,17 @@ void loop()
 //  proximity = analogRead( IR_FRONT );
 
   robot.proximity->read();
+  
+  if (robot.paction)
+  {
+    if (!robot.paction->loop())
+    {
+      robot.setAction(robot.paction->pnext_action);
+    }
+    return;
+  }
+  
+  
     
   if (action == ACTION_SCAN3)
   {
@@ -494,6 +524,7 @@ void StartIMU()
   if (imu_timer_running) return;
   imu_timer_running = true;
   
+  /*
   if (imu.log_max)
   {
     imu.dump_mmax_header(robot.sout);
@@ -502,6 +533,7 @@ void StartIMU()
   {
     imu.dump_header(robot.sout);
   }
+  */
   
   imu.start();
   imu_timer.begin(UpdateIMU,10000);
@@ -543,7 +575,7 @@ void UpdateIMU()
   imu.loop();
 
   // update display every 10 reads
-  dump_imu = ((imu.buff_index % 10) == 0);
+//  dump_imu = ((imu.buff_index % 10) == 0);
 
 }
 
@@ -598,12 +630,12 @@ void IRMenu()
         action = ACTION_FOLLOW;
         break;      
       case BUTTON_RIGHT:
-        robot.sout->println("SPIN(CW)");      
-        spin(CW,SPEED_SLOW,100);
+        action_spin_100ms.direction = CW;
+        robot.setAction( &action_spin_100ms );
         break;
       case BUTTON_LEFT:
-        robot.sout->println("SPIN(CCW)");      
-        spin(CCW,SPEED_SLOW,100);
+        action_spin_100ms.direction = CCW;
+        robot.setAction( &action_spin_100ms );
         break;
       case BUTTON_UP:
         robot.sout->println("FORWARD");      
@@ -617,12 +649,12 @@ void IRMenu()
         move(REVERSE,SPEED_MED,100);
           break;
       case BUTTON_NEXT:
-        robot.sout->println("SPIN(CW)");      
-        spin_degree(CW,SPEED_SLOW,90);
+        action_spin_45deg.direction = CW;
+        robot.setAction( &action_spin_45deg );
         break;
       case BUTTON_PREV:
-        robot.sout->println("SPIN(CCW)");      
-        spin_degree(CCW,SPEED_SLOW,90);
+        action_spin_45deg.direction = CCW;
+        robot.setAction( &action_spin_45deg );
         break;
       case BUTTON_PLAY:
         imu.log_max = false;
@@ -921,12 +953,12 @@ void parse_serial_buffer()
 
 
       case '>':
-        robot.sout->println("SPIN(CW)");      
-        spin_degree(CW,SPEED_SLOW,90);
+        action_spin_45deg.direction = CW;
+        robot.setAction( &action_spin_45deg );
         break;
       case '<':
-        robot.sout->println("SPIN(CCW)");      
-        spin_degree(CCW,SPEED_SLOW,90);
+        action_spin_45deg.direction = CW;
+        robot.setAction( &action_spin_45deg );
         break;
 
         
@@ -993,34 +1025,44 @@ void parse_serial_buffer()
       case '?':
         robot.dump();
         robot.sout->print("action=");
-        switch(action)
+        if (robot.paction)
         {
-            case ACTION_REST:
-                robot.sout->println("REST");
-                break;
-            case ACTION_FORWARD_FAST:
-                robot.sout->println("FORWARD_FAST");
-                break;
-            case ACTION_FORWARD_MED:
-                robot.sout->println("FORWARD_MED");
-                break;
-            case ACTION_FORWARD_SLOW:
-                robot.sout->println("FORWARD_SLOW");
-                break;
-            case ACTION_REVERSE:
-                robot.sout->println("REVERSE");
-                break;
-            case ACTION_SCAN:
-                robot.sout->println("SCAN");
-                break;
-            case ACTION_CUSTOM:
-                robot.sout->println("CUSTOM");
-                break;
-            default:
-                robot.sout->println("UNKNOWN");
-                break;
+          robot.paction->dump();
+        }
+        else
+        {
+          switch(action)
+          {
+              case ACTION_REST:
+                  robot.sout->println("REST");
+                  break;
+              case ACTION_FORWARD_FAST:
+                  robot.sout->println("FORWARD_FAST");
+                  break;
+              case ACTION_FORWARD_MED:
+                  robot.sout->println("FORWARD_MED");
+                  break;
+              case ACTION_FORWARD_SLOW:
+                  robot.sout->println("FORWARD_SLOW");
+                  break;
+              case ACTION_REVERSE:
+                  robot.sout->println("REVERSE");
+                  break;
+              case ACTION_SCAN:
+                  robot.sout->println("SCAN");
+                  break;
+              case ACTION_CUSTOM:
+                  robot.sout->println("CUSTOM");
+                  break;
+              default:
+                  robot.sout->println("UNKNOWN");
+                  break;
+          }
         }
         
+        robot.sout->print("A1=");
+        robot.sout->print((float)analogRead(A1) * 3.3 * 1.5 / 1023.0);
+        robot.sout->println("V");
         robot.sout->print("A2=");
         robot.sout->println(analogRead(A2));
         robot.sout->print("A3=");
@@ -1218,7 +1260,7 @@ void rest(int duration)
 {
   action = ACTION_REST;
   action_duration = duration;
-  robot.stop();
+    robot.stop();
   heading_target = -1;
 }
 
@@ -1328,52 +1370,6 @@ void rover()
   }
 }
 */
-
-void spin(int dir, int pwm, int duration)
-{
-  // start turning left
-  action = ACTION_SPIN;
-  spin_pwm = pwm;
-  spin_direction = dir;
-  robot.spin_pwm(dir,pwm);
-//  motor_left.setDir(dir);
-//  motor_right.setDir(!dir);
-//  motor_left.setPWM(pwm);
-//  motor_right.setPWM(pwm);
-  action_duration = duration;
-}
-
-void spin_degree(int dir, int pwm, float target)
-{
-  // Read compass
-  compass.read();
-  heading = compass.heading();
-
-  spin_target = target;
-
-  if (dir == CW)
-    heading_target = heading + target;
-  else
-    heading_target = heading - target;
-    
-  if (heading_target <= 0) 
-    heading_target += 360;
-  else
-    if (heading_target > 360.0) heading_target -= 360;
- 
-  robot.sout->print("heading_target=");
-  robot.sout->println(heading_target);
-  
-  StartIMU();
-  
-  // start turning left
-  action = ACTION_SPIN;
-  spin_pwm = pwm;
-  spin_direction = dir;
-  robot.spin_pwm(dir,pwm);
-  action_duration = 10000;
-}
-
 
 int move_pwm = 0;
 int move_direction = 0;
