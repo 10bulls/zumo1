@@ -5,6 +5,7 @@
 
 #include "RobotMotor.h"
 #include "RobotIMU.h"
+#include "RobotProximity.h"
 #include "Robot.h"
 #include "RobotAction.h"
 
@@ -29,7 +30,7 @@
 #define CCW     1
 
 // #define IR_FRONT   4
-#define IR_FRONT   2
+#define IR_FRONT   A2
 
 #define ACTION_REST             0
 #define ACTION_FORWARD_FAST     1
@@ -52,7 +53,8 @@
 #define   AUTO                  1
 #define   MANUAL                0
 
-#define FOLLOW_TARGET 800
+// #define FOLLOW_TARGET 800
+#define FOLLOW_TARGET       12   // cm note < 8 cm not accurate
 
 //int SPEED_FAST = 128;  // 0x1e
 //int SPEED_MED  = 64;
@@ -86,8 +88,9 @@ int time_step = 100;
 // MotorPID motor_left(MC_B1, MC_B2, ENCODER_L);
 // MotorPID motor_right(MC_A1, MC_A2, ENCODER_R);
 
-int proximity_max = 0;
-int proximity = 0;
+//int proximity_max = 0;
+//int proximity = 0;
+float distance_max = 0;
 
 float heading = -1;
 float heading_target = -1;
@@ -116,6 +119,8 @@ decode_results results;
 
 L3G gyro;
 LSM303 compass;
+SharpIR sharpIR(IR_FRONT);
+
 
 RobotIMU imu(&compass, &gyro);
 
@@ -128,7 +133,7 @@ boolean dump_imu = false;
 RobotMotor motor_left( MOTOR_L_PWM, MOTOR_L_DIR );
 RobotMotor motor_right( MOTOR_R_PWM, MOTOR_R_DIR );
 
-RobotTank robot(&motor_left, &motor_right);
+RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR);
 
 void setup()
 {
@@ -141,7 +146,10 @@ void setup()
   pinMode( LED_PIN, OUTPUT );
   
   robot.setup();
+  
+//  analogReference(EXTERNAL);
   pinMode( IR_FRONT, INPUT );
+  pinMode( A3, INPUT );
   
   pinMode( BUTTON_PIN, INPUT_PULLUP );
   
@@ -276,12 +284,14 @@ void loop()
 */
 
   // Read IR sensor
-  proximity = analogRead( IR_FRONT );
-  
-  
+//  proximity = analogRead( IR_FRONT );
+
+  robot.proximity->read();
+    
   if (action == ACTION_SCAN3)
   {
-    if (proximity < proximity_max)
+    // if (proximity < proximity_max)
+    if (robot.proximity->distance > distance_max)
     {
       // rest(0);
       rove();
@@ -289,14 +299,17 @@ void loop()
   }
   else if (action == ACTION_SCAN1 || action == ACTION_SCAN2)
   { 
-    if (proximity < proximity_max)
+    // if (proximity < proximity_max)
+    if (robot.proximity->distance > distance_max)
     {
-      proximity_max = proximity;
+      // proximity_max = proximity;
+      distance_max = robot.proximity->distance;
     }
   }
   else if (action == ACTION_ROVE)
   {
-    if (proximity > 300)
+    // if (proximity > 300)
+    if (robot.proximity->distance < 20)
     {
       scan(0);
     }
@@ -380,7 +393,8 @@ void loop()
     
     if (auto_mode == AUTO)
     {
-      rover(); 
+      // rover(); 
+      scan(0);
     }
     else
     {
@@ -642,15 +656,18 @@ void IRMenu()
 
 void action_follow()
 {
-  robot.sout->println(proximity);
+//  robot.sout->println(proximity);
+  robot.sout->println(robot.proximity->distance);
   
   // proximity 50 (far)
-  if (proximity < 50)
+  // if (proximity < 50)
+  if (robot.proximity->distance > 60 || robot.proximity->distance < 8 )
   {
     // error or really close to target
     robot.stop();
   }
-  else if (proximity >= FOLLOW_TARGET -10 && proximity <= FOLLOW_TARGET +10)
+  // else if (proximity >= FOLLOW_TARGET -10 && proximity <= FOLLOW_TARGET +10)
+  else if (abs(robot.proximity->distance - FOLLOW_TARGET) <= 1.0)
   {
     // where we want to be
     robot.stop();
@@ -658,22 +675,22 @@ void action_follow()
   else
   {
     boolean dir = FORWARD;
-    int diff = FOLLOW_TARGET - proximity;
+    // int diff = FOLLOW_TARGET - proximity;
+    float diff = robot.proximity->distance - FOLLOW_TARGET;
     if (diff < 0) 
     {
       dir = REVERSE;
       diff = -diff;
     }
-    if (diff > 255) diff = 255;
+    if (diff > 10.0) diff = 10.0;
 //    int speed = SPEED_FAST * diff / 255;
-      int speed = SPEED_MED * diff / 255;
+      int speed = SPEED_MED * diff / 10.0;
     
     robot.sout->print("v=");
     robot.sout->println(speed);
     
     robot.move_pwm(dir,speed);
   }
-  
 }
 
 void MotorTest( unsigned long duration, unsigned long pause )
@@ -1004,6 +1021,12 @@ void parse_serial_buffer()
                 break;
         }
         
+        robot.sout->print("A2=");
+        robot.sout->println(analogRead(A2));
+        robot.sout->print("A3=");
+        robot.sout->println(analogRead(A3));
+
+
 /*        
         Serial.print("duration=");
         Serial.println(action_duration);
@@ -1098,11 +1121,22 @@ int scan_duration = SCAN_DURATION;
 
 void scan(int duration)
 {
+  static int scan_count = 0;
+  
+  scan_count++;
+  
   // start turning left
   action = ACTION_SCAN1;
-  scan_direction = !scan_direction;
+  
+  if (scan_count > 100)
+  {
+    scan_count = 0;
+    scan_direction = !scan_direction;  
+  }
+
   int speed = SPEED_SLOW;
-  if (proximity < 100)
+  // if (proximity < 100)
+  if (robot.proximity->distance > 60)
   {
     // coast is clear
     speed = SPEED_FAST;  
@@ -1110,7 +1144,8 @@ void scan(int duration)
 //    motor_right.setPWM(SPEED_FAST);
     action_duration = SCAN_DURATION;
   }
-  else if (proximity < 200)
+  // else if (proximity < 200)
+  if (robot.proximity->distance > 30)
   {
     // coast is clear
     speed = SPEED_MED;    
@@ -1129,7 +1164,8 @@ void scan(int duration)
 //  motor_left.setDir(scan_direction);
 //  motor_right.setDir(!scan_direction);
   
-  proximity_max = proximity;
+//  proximity_max = proximity;
+  distance_max = robot.proximity->distance;
 /*  
   action = ACTION_SCAN;
   action_duration = duration;
@@ -1164,7 +1200,8 @@ void scan3()
 void rove()
 {
   action = ACTION_ROVE;
-  if (proximity < 100)
+  // if (proximity < 100)
+  if (robot.proximity->distance > 60)
   {
     action_duration = 2000;
     robot.forward_pwm(SPEED_FAST);
@@ -1185,6 +1222,7 @@ void rest(int duration)
   heading_target = -1;
 }
 
+/*
 void rover()
 {
   if (action_duration == 0)
@@ -1289,6 +1327,7 @@ void rover()
     }
   }
 }
+*/
 
 void spin(int dir, int pwm, int duration)
 {

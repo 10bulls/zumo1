@@ -47,6 +47,17 @@ public:
   {
   }
 
+  void read()
+  {
+    pcompass->read();
+    pgyro->read();
+  }
+
+  float getHeading()
+  {
+    return heading(pcompass->m, pcompass->a, (LSM303::vector<int>){1, 0, 0} );
+  }
+
   void loop()
   {
     pcompass->read();
@@ -308,7 +319,7 @@ public:
     a->z /= mag;
   }
 
-  
+    
   /*
   Returns the angular difference in the horizontal plane between the
   "from" vector and north, in degrees.

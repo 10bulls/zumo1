@@ -4,9 +4,11 @@
 class Robot
 {
 public:
-  Robot()
+  Robot(RobotIMU * pimu = 0, RobotProximity * pprox = 0)
   {
     sout = &Serial3;
+    imu = pimu;
+    proximity = pprox;
   }
   
   virtual void setup()
@@ -41,16 +43,28 @@ public:
   
   virtual void dump()
   {
+    if (imu)
+    {
+      imu->read();
+      sout->print("heading=");
+      sout->println(imu->getHeading());
+    }
+    if (proximity)
+    {
+      sout->print("proximity=");
+      sout->println(proximity->read());
+    }
   }
-  
 
   Stream *sout;
+  RobotIMU * imu;
+  RobotProximity * proximity;
 };
 
 class RobotTank : public Robot
 {
 public:
-  RobotTank(RobotMotor * lm, RobotMotor * rm )
+  RobotTank(RobotMotor * lm, RobotMotor * rm, RobotIMU * pimu=0, RobotProximity * pprox=0 ) : Robot(pimu, pprox)
   {
     motor_L = lm;
     motor_R = rm;
@@ -92,12 +106,12 @@ public:
 
   void dump()
   {
+    Robot::dump();
     sout->print("PWM(L,R)=");
     sout->print(motor_L->getPWM());
     sout->print(", ");
     sout->println(motor_R->getPWM());
   }
-
 
   RobotMotor * motor_L;
   RobotMotor * motor_R;
