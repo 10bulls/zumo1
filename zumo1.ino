@@ -3,8 +3,6 @@
 #include <LSM303.h>
 #include <L3G.h>
 
-// Stream * sout = &Serial3;
-
 class RobotAction;
 class Robot;
 
@@ -49,16 +47,11 @@ class Robot;
 #define ACTION_SCAN3            9
 #define ACTION_ROVE             10
 
-#define ACTION_FOLLOW          11
-
 #define ACTION_SPIN            12
 #define ACTION_MOVE            13
 
 #define   AUTO                  1
 #define   MANUAL                0
-
-// #define FOLLOW_TARGET 800
-#define FOLLOW_TARGET       12   // cm note < 8 cm not accurate
 
 //int SPEED_FAST = 128;  // 0x1e
 //int SPEED_MED  = 64;
@@ -136,9 +129,20 @@ RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR);
 #include "RobotAction.h"
 
 ActionRest action_rest;
+
+ActionMove action_forward_slow(FORWARD,SPEED_SLOW,100);
+ActionMove action_forward_med(FORWARD,SPEED_MED,100);
+ActionMove action_forward_fast(FORWARD,SPEED_FAST,100);
+
+ActionMove action_reverse_slow(REVERSE,SPEED_SLOW,100);
+ActionMove action_reverse_med(REVERSE,SPEED_MED,100);
+ActionMove action_reverse_fast(REVERSE,SPEED_FAST,100);
+
 ActionSpin action_spin;
 ActionSpin action_spin_100ms(CW,0,SPEED_SLOW,100);
 ActionSpin action_spin_45deg(CW,45,SPEED_SLOW,10000);
+
+ActionRepel action_repel(12);
 
 void Robot::setAction( RobotAction * action )
 {
@@ -242,27 +246,7 @@ void loop()
   {
     if (butt)
     {
-//      Serial.println("SCAN");
-//      scan(0);
-      if (action == ACTION_REST)
-      {
-        // action = ACTION_FOLLOW;
-        robot.sout->println("SCAN");
-        scan(0);
-      }
-      else if (action == ACTION_FOLLOW)
-      {
-        rest(0);
-        // action = ACTION_REST;
-        robot.sout->println("REST");
-      }
-      else
-      {
-        action = ACTION_FOLLOW;
-        robot.sout->println("FOLLOW");
-      }
-      
-        
+      // TODO: cycle through action mode list (0-9)      
     }
     button_state = butt;
     delay(20);
@@ -323,7 +307,6 @@ void loop()
     // if (proximity < proximity_max)
     if (robot.proximity->distance > distance_max)
     {
-      // rest(0);
       rove();
     }
   }
@@ -345,67 +328,6 @@ void loop()
     }
   }
 
-    if (heading_target != -1)
-    {
-      // Read compass
-      if (!imu_timer_running)
-      {
-        compass.read();
-      }
-      heading = compass.heading();
-      robot.sout->print("h=");      
-      robot.sout->print(heading);   
-      robot.sout->print("    ");         
-      
-      float diff = 0;
-  
-      if (spin_direction==CW)
-      {
-        diff = spin_target - imu.degrees;
-      }
-      else
-      {
-        diff = spin_target + imu.degrees;
-      }
-      
-/*     
-      
-      
-      if (spin_direction==CW)
-      {
-        if (heading > heading_target)
-          diff = 360 + heading - heading_target;
-        else 
-          diff = heading_target - heading;
-      }
-      else if (spin_direction==CCW)
-      {
-        if (heading < heading_target)
-          diff = 360 - heading_target + heading;
-        else 
-          diff = heading - heading_target;
-      }
-      if (diff > spin_target + 90) diff = 360 - diff;
-*/      
-      robot.sout->print("d=");      
-      robot.sout->println(diff);      
-
-      // if (diff < COMPASS_ERROR)
-      if (diff < 0)
-      {
-        heading_target = -1;
-        rest(0);
-        delay(100);
-        StopIMU();
-        // imu.dump_buffer(robot.sout);
-        //if (imu.buffer_overflow)
-        //  robot.sout->println("OVERFLOW!");
-        //float degdiff = imu.get_degree_change();
-        robot.sout->print("gyro change=");      
-        robot.sout->println(imu.degrees);      
-        return;
-      }
-    }
 
 
   unsigned long time_now = millis();
@@ -414,12 +336,6 @@ void loop()
       (time_now < time_last && (time_last-time_now) >= time_step))
   {
     time_last = time_now;
-    
-   if (action == ACTION_FOLLOW)
-    {    
-      action_follow();
-      return;
-    }
     
     if (auto_mode == AUTO)
     {
@@ -449,7 +365,8 @@ void loop()
         }
         else
         {
-          rest(0);
+          robot.setAction( &action_rest );
+
         }
       }
  
@@ -617,17 +534,14 @@ void IRMenu()
     switch(button)
     {
       case BUTTON_NUM_0:
-        robot.sout->println("REST");
-        rest(0);
-//        action = ACTION_REST;
+        robot.setAction( &action_rest );
         break;
       case BUTTON_NUM_1:
         robot.sout->println("SCAN");      
         scan(0);
         break;
       case BUTTON_NUM_2:
-        robot.sout->println("FOLLOW");      
-        action = ACTION_FOLLOW;
+        robot.setAction( &action_repel );
         break;      
       case BUTTON_RIGHT:
         action_spin_100ms.direction = CW;
@@ -638,16 +552,11 @@ void IRMenu()
         robot.setAction( &action_spin_100ms );
         break;
       case BUTTON_UP:
-        robot.sout->println("FORWARD");      
-//        move(FORWARD,SPEED_SLOW,100);
-        move(FORWARD,SPEED_MED,100);
-  
+        robot.setAction( &action_forward_med );
         break;
       case BUTTON_DOWN:
-        robot.sout->println("SPIN(CCW)");      
-//        move(REVERSE,SPEED_SLOW,100);
-        move(REVERSE,SPEED_MED,100);
-          break;
+        robot.setAction( &action_reverse_med );
+        break;
       case BUTTON_NEXT:
         action_spin_45deg.direction = CW;
         robot.setAction( &action_spin_45deg );
@@ -685,7 +594,7 @@ void IRMenu()
   }
 }
 
-
+/*
 void action_follow()
 {
 //  robot.sout->println(proximity);
@@ -724,6 +633,7 @@ void action_follow()
     robot.move_pwm(dir,speed);
   }
 }
+*/
 
 void MotorTest( unsigned long duration, unsigned long pause )
 {
@@ -973,8 +883,7 @@ void parse_serial_buffer()
         break;
 */        
       case 'm': // manual
-        auto_mode = MANUAL;
-        rest(-1);
+        robot.setAction( &action_rest );
         break;
 /*        
       case 'R':  // set the left target
@@ -996,8 +905,7 @@ void parse_serial_buffer()
         
       case 's': // stop
         StopIMU();
-        auto_mode = MANUAL;
-        rest(-1);
+        robot.setAction( &action_rest );
         break;
         
       case 't': // time/duration
@@ -1255,15 +1163,6 @@ void rove()
   }
 }
 
-
-void rest(int duration)
-{
-  action = ACTION_REST;
-  action_duration = duration;
-    robot.stop();
-  heading_target = -1;
-}
-
 /*
 void rover()
 {
@@ -1371,15 +1270,4 @@ void rover()
 }
 */
 
-int move_pwm = 0;
-int move_direction = 0;
 
-void move(int dir, int pwm, int duration)
-{
-  // start turning left
-  action = ACTION_MOVE;
-  move_pwm = pwm;
-  move_direction = dir;
-  robot.move_pwm(dir,pwm);
-  action_duration = duration;
-}

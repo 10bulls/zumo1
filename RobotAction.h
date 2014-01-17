@@ -120,7 +120,8 @@ public:
   virtual void end()
   {
     RobotAction::end();
-    robot.stop();
+    // rely on RestAction to stop, to prevent jerky continuous movement
+    // robot.stop();
     if (degree_target > 0)
     {
       StopIMU();
@@ -145,5 +146,106 @@ public:
   
   
 };
+
+class ActionMove : public RobotAction
+{
+public:
+  ActionMove(boolean dir=FORWARD, int pwm=SPEED_SLOW, unsigned long d=0 ) : RobotAction(d)
+  {
+    direction = dir;
+    speed_pwm = pwm;
+  }
+
+  virtual void start()
+  {
+    RobotAction::start();
+    robot.move_pwm(direction,speed_pwm);
+  }
+
+  virtual boolean loop()
+  {
+    if (!RobotAction::loop()) return false;
+    return true;
+  }
+
+  virtual void end()
+  {
+    RobotAction::end();
+    // rely on RestAction to stop, to prevent jerky continuous movement
+    // robot.stop();
+  }
+
+  virtual void dump()
+  {
+    robot.sout->print("move(");
+    robot.sout->print(direction ? "REVERSE" : "FORWARD");
+    robot.sout->print("pwm=");
+    robot.sout->print(speed_pwm);
+    robot.sout->println(")");  
+  }
+  
+  boolean direction;
+  int speed_pwm;
+};
+
+class ActionRepel : public RobotAction
+{
+public:
+  ActionRepel(float dtarget, unsigned long d=0 ) : RobotAction(d)
+  {
+    distance_target = dtarget;
+  }
+
+  virtual void start()
+  {
+    RobotAction::start();
+  }
+
+  virtual boolean loop()
+  {
+    if (!RobotAction::loop()) return false;
+
+    // robot.sout->println(robot.proximity->distance);
+  
+    if (robot.proximity->distance > 60 || robot.proximity->distance < 8 )
+    {
+      // error or really close to target
+      robot.stop();
+    }
+    else if (abs(robot.proximity->distance - distance_target) <= 1.0)
+    {
+      // where we want to be
+      robot.stop();
+    }
+    else
+    {
+      boolean dir = FORWARD;
+      float diff = robot.proximity->distance - distance_target;
+      if (diff < 0) 
+      {
+        dir = REVERSE;
+        diff = -diff;
+      }
+      if (diff > 10.0) diff = 10.0;
+      int speed = SPEED_MED * diff / 10.0;
+      
+      robot.sout->print("v=");
+      robot.sout->println(speed);
+      
+      robot.move_pwm(dir,speed);
+    }
+
+    return true;
+  }
+
+  virtual void dump()
+  {
+    robot.sout->println("repel");
+  }
+
+  float distance_target;  
+};
+
+
 
 #endif
