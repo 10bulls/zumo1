@@ -147,13 +147,91 @@ public:
   
 };
 
+class ActionScan : public ActionSpin
+{
+public:
+  ActionScan(boolean dir=CW, float degree=0, int pwm=SPEED_SLOW, unsigned long d=0 ) : ActionSpin(dir,degree,pwm,d)
+  {
+    start_direction = dir;
+    start_degree_target = degree;
+  }
+
+  virtual void start()
+  {
+    degree_target = start_degree_target;
+    ActionSpin::start();
+    stage = 1;  // 1 = spin in default direction
+                // 2 = reverse spin
+                // 3 = original spin, stop at best proximity
+                
+    distance_max = robot.proximity->distance;                
+  }
+
+  virtual boolean loop()
+  {
+    if (!ActionSpin::loop()) 
+    {
+      robot.imu->degrees = 0;
+      
+      stage++;
+      if (stage > 3) return false;
+
+      direction = !direction;
+      
+      if (stage == 2)
+      {
+        degree_target *= 2;
+        duration *= 2;
+      }
+      
+      robot.spin_dir(direction);
+
+    }
+    
+    if (robot.proximity->distance >= distance_max)
+    {
+      if (stage == 3)
+      {
+        // stop at this heading
+        return false;
+      }
+      else
+      {
+        distance_max = robot.proximity->distance;
+      }
+    }
+
+    return true;
+  }
+
+  virtual void end()
+  {
+    ActionSpin::end();
+  }
+
+  virtual void dump()
+  {
+    robot.sout->print("scan(");
+    robot.sout->print(direction ? "CCW," : "CW,");
+    robot.sout->print(degree_target);
+    robot.sout->println(" deg)");  
+  }
+
+  boolean start_direction;  
+  float start_degree_target;
+  int stage = 1;
+  float distance_max;
+};
+
+
 class ActionMove : public RobotAction
 {
 public:
-  ActionMove(boolean dir=FORWARD, int pwm=SPEED_SLOW, unsigned long d=0 ) : RobotAction(d)
+  ActionMove(boolean dir=FORWARD, int pwm=SPEED_SLOW, float dtarget=10.0, unsigned long d=0 ) : RobotAction(d)
   {
     direction = dir;
     speed_pwm = pwm;
+    distance_target = dtarget;
   }
 
   virtual void start()
@@ -165,6 +243,9 @@ public:
   virtual boolean loop()
   {
     if (!RobotAction::loop()) return false;
+    
+    if (robot.proximity->distance < distance_target) return false;
+    
     return true;
   }
 
@@ -186,6 +267,7 @@ public:
   
   boolean direction;
   int speed_pwm;
+  float distance_target;
 };
 
 class ActionRepel : public RobotAction
@@ -245,6 +327,7 @@ public:
 
   float distance_target;  
 };
+
 
 
 

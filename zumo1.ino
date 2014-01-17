@@ -11,9 +11,6 @@ class Robot;
 #include "RobotProximity.h"
 #include "Robot.h"
 
-#define SCAN_PWM  0x50
-#define SCAN_DURATION  100
-
 #define LED_PIN     13
 #define BUZZER_PIN  20
 #define BUTTON_PIN  12
@@ -130,19 +127,24 @@ RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR);
 
 ActionRest action_rest;
 
-ActionMove action_forward_slow(FORWARD,SPEED_SLOW,100);
-ActionMove action_forward_med(FORWARD,SPEED_MED,100);
-ActionMove action_forward_fast(FORWARD,SPEED_FAST,100);
+ActionMove action_forward_slow(FORWARD,SPEED_SLOW,10,100);
+ActionMove action_forward_med(FORWARD,SPEED_MED,10,100);
+ActionMove action_forward_fast(FORWARD,SPEED_FAST,10,100);
 
-ActionMove action_reverse_slow(REVERSE,SPEED_SLOW,100);
-ActionMove action_reverse_med(REVERSE,SPEED_MED,100);
-ActionMove action_reverse_fast(REVERSE,SPEED_FAST,100);
+ActionMove action_reverse_slow(REVERSE,SPEED_SLOW,0,100);
+ActionMove action_reverse_med(REVERSE,SPEED_MED,0,100);
+ActionMove action_reverse_fast(REVERSE,SPEED_FAST,0,100);
 
 ActionSpin action_spin;
 ActionSpin action_spin_100ms(CW,0,SPEED_SLOW,100);
 ActionSpin action_spin_45deg(CW,45,SPEED_SLOW,10000);
 
 ActionRepel action_repel(12);
+
+ActionScan action_scan(CW,34,SPEED_SLOW,3000);
+
+ActionScan action_scan_rove(CW,34,SPEED_SLOW,3000);
+ActionMove action_forward_rove(FORWARD,SPEED_MED,15, 5000);
 
 void Robot::setAction( RobotAction * action )
 {
@@ -201,6 +203,9 @@ void setup()
   {
     gyro.enableDefault();
   }
+  
+  action_scan_rove.pnext_action = &action_forward_rove;
+  action_forward_rove.pnext_action = &action_scan_rove;
 
   robot.setAction(&action_rest);
   
@@ -298,90 +303,6 @@ void loop()
       robot.setAction(robot.paction->pnext_action);
     }
     return;
-  }
-  
-  
-    
-  if (action == ACTION_SCAN3)
-  {
-    // if (proximity < proximity_max)
-    if (robot.proximity->distance > distance_max)
-    {
-      rove();
-    }
-  }
-  else if (action == ACTION_SCAN1 || action == ACTION_SCAN2)
-  { 
-    // if (proximity < proximity_max)
-    if (robot.proximity->distance > distance_max)
-    {
-      // proximity_max = proximity;
-      distance_max = robot.proximity->distance;
-    }
-  }
-  else if (action == ACTION_ROVE)
-  {
-    // if (proximity > 300)
-    if (robot.proximity->distance < 20)
-    {
-      scan(0);
-    }
-  }
-
-
-
-  unsigned long time_now = millis();
-  
-  if ((time_now > time_last && (time_now-time_last) >= time_step) ||
-      (time_now < time_last && (time_last-time_now) >= time_step))
-  {
-    time_last = time_now;
-    
-    if (auto_mode == AUTO)
-    {
-      // rover(); 
-      scan(0);
-    }
-    else
-    {
-      if (action_duration == 0)
-      {
-        if (action == ACTION_SCAN1)
-        {
-          scan2();
-        }
-        else if (action == ACTION_SCAN2)
-        {
-          scan3();
-        }
-        else if (action == ACTION_SCAN3)
-        {
-          rove();
-        }
-        else if (action == ACTION_ROVE)
-        {
-          // rest(0);
-          scan(0);
-        }
-        else
-        {
-          robot.setAction( &action_rest );
-
-        }
-      }
- 
-
-//    motor_left.UpdateMotor();
-//    motor_right.UpdateMotor();
-    }  
-
-    if (action_duration > 0)
-    {
-      if (action_duration < time_step)
-        action_duration = 0;
-       else
-        action_duration -= time_step;
-    }
   }
 }
 
@@ -537,11 +458,13 @@ void IRMenu()
         robot.setAction( &action_rest );
         break;
       case BUTTON_NUM_1:
-        robot.sout->println("SCAN");      
-        scan(0);
+        robot.setAction( &action_scan_rove );
         break;
       case BUTTON_NUM_2:
         robot.setAction( &action_repel );
+        break;      
+      case BUTTON_NUM_3:
+        robot.setAction( &action_scan );
         break;      
       case BUTTON_RIGHT:
         action_spin_100ms.direction = CW;
@@ -815,8 +738,7 @@ void parse_serial_buffer()
     switch(ch)
     {
       case 'a': // autonomous
-        auto_mode = AUTO;
-        scan(5000);
+        robot.setAction( &action_scan_rove );
         break;
         
       case 'b': // backwards
@@ -844,9 +766,9 @@ void parse_serial_buffer()
         val_neg=0;        
         break;
         
-      case 'g': // go
-        scan(5000);
-        break;
+      //case 'g': // go
+      //  scan(5000);
+      //  break;
         
       case 'f': // forward
         auto_mode = MANUAL;
@@ -1063,88 +985,6 @@ void forward_slow(int duration)
   action = ACTION_FORWARD_SLOW;
   action_duration = duration;
   robot.forward_pwm(SPEED_SLOW);
-}
-
-boolean scan_direction = 0;
-
-int scan_duration = SCAN_DURATION;
-
-void scan(int duration)
-{
-  static int scan_count = 0;
-  
-  scan_count++;
-  
-  // start turning left
-  action = ACTION_SCAN1;
-  
-  if (scan_count > 100)
-  {
-    scan_count = 0;
-    scan_direction = !scan_direction;  
-  }
-
-  int speed = SPEED_SLOW;
-  // if (proximity < 100)
-  if (robot.proximity->distance > 60)
-  {
-    // coast is clear
-    speed = SPEED_FAST;  
-//    motor_left.setPWM(SPEED_FAST);
-//    motor_right.setPWM(SPEED_FAST);
-    action_duration = SCAN_DURATION;
-  }
-  // else if (proximity < 200)
-  if (robot.proximity->distance > 30)
-  {
-    // coast is clear
-    speed = SPEED_MED;    
-//    motor_left.setPWM(SPEED_MED);
-//    motor_right.setPWM(SPEED_MED);
-    action_duration = 2 * SCAN_DURATION;
-  }
-  else
-  {
-    // coast is clear
-//    motor_left.setPWM(SPEED_SLOW);
-//    motor_right.setPWM(SPEED_SLOW);
-    action_duration = 2 * SCAN_DURATION;
-  }
-  robot.spin_pwm(scan_direction,speed);
-//  motor_left.setDir(scan_direction);
-//  motor_right.setDir(!scan_direction);
-  
-//  proximity_max = proximity;
-  distance_max = robot.proximity->distance;
-/*  
-  action = ACTION_SCAN;
-  action_duration = duration;
-  motor_left.reverse(SPEED_MED);
-  motor_right.forward(SPEED_MED);
-*/
-}
-
-void scan2()
-{
-  // start turning left
-  action = ACTION_SCAN2;
-//  motor_left.setPWM(SCAN_PWM);
-//  motor_right.setPWM(SCAN_PWM);
-//  motor_left.setDir(!scan_direction);
-//  motor_right.setDir(scan_direction);
-  robot.spin_dir(!scan_direction);
-  action_duration = 2*scan_duration;
-}
-
-void scan3()
-{
-  // start turning left
-  action = ACTION_SCAN3;
-//  motor_left.setDir(scan_direction);
-//  motor_right.setDir(!scan_direction);
-//  action_duration = 0x200;
-  robot.spin_dir(scan_direction);
-  action_duration = 2*scan_duration;
 }
 
 void rove()
