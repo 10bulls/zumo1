@@ -3,6 +3,10 @@
 #include <LSM303.h>
 #include <L3G.h>
 
+#include <QTRSensors.h>
+#include <ZumoReflectanceSensorArray.h>
+
+
 class RobotAction;
 class Robot;
 
@@ -28,7 +32,7 @@ class Robot;
 #define CW      0
 #define CCW     1
 
-#define IR_FRONT   A2
+#define IR_FRONT   A9
 
 //int SPEED_FAST = 128;  // 0x1e
 //int SPEED_MED  = 64;
@@ -62,6 +66,17 @@ IRrecv irrecv(RECV_PIN);
 // IRsend irsend;
 
 decode_results results;
+
+////////////////////////////////////
+
+unsigned char sensorPins[] = { A7, A3, A8, A0, A2, 6 };
+
+ZumoReflectanceSensorArray reflectanceSensors;
+// ZumoReflectanceSensorArray reflectanceSensors(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
+
+// Define an array for holding sensor values.
+#define NUM_SENSORS 6
+unsigned int sensorValues[NUM_SENSORS];
 
 ////////////////////////////////////
 
@@ -116,6 +131,8 @@ ActionScan2 action_scan2_ccw(CCW,180,SPEED_MED,30,3000);
 ActionScan2 action_scan2_rove_ccw(CCW,180,SPEED_MED,30,3000);
 ActionMove action_forward_rove2_ccw(FORWARD,SPEED_MED,15, 5000);
 
+ActionLineDetect action_line_detect;
+ActionStayInBoundary action_in_boundary;
 
 RobotAction * QuickActions []
 {
@@ -127,8 +144,10 @@ RobotAction * QuickActions []
   &action_scan2,       // 5
   &action_scan2_rove,    // 6
   &action_scan2_ccw,       // 7
-  &action_scan2_rove_ccw    // 8
-  
+//  &action_scan2_rove_ccw,    // 8
+  &action_line_detect,    // 8
+  &action_in_boundary      // 9
+    
 };
 
 #define NUM_QUICK_ACTIONS  sizeof(QuickActions)/sizeof(QuickActions[0])
@@ -198,6 +217,9 @@ void setup()
   {
     gyro.enableDefault();
   }
+  
+  // reflectanceSensors.init();
+  reflectanceSensors.init(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
   
   action_scan_rove.pnext_action = &action_forward_rove;
   action_forward_rove.pnext_action = &action_scan_rove;
@@ -709,6 +731,7 @@ void parse_serial_buffer()
         robot.sout->println("CALIBRATE");
         calibrate_gyro();
         delay(100);
+        calibrate_reflectance_array();
         break;
         
       case 'P':
@@ -816,8 +839,8 @@ void parse_serial_buffer()
         robot.sout->print("A1=");
         robot.sout->print((float)analogRead(A1) * 3.3 * 1.5 / 1023.0);
         robot.sout->println("V");
-        robot.sout->print("A2=");
-        robot.sout->println(analogRead(A2));
+        robot.sout->print("A9=");
+        robot.sout->println(analogRead(A9));
         robot.sout->print("A3=");
         robot.sout->println(analogRead(A3));
 
@@ -880,5 +903,34 @@ void parse_serial_buffer()
   
   serial_buffer_start = 0;
   iserial_buffer = 0;
+}
+
+void calibrate_reflectance_array()
+{
+  robot.sout->println("Calibrating array...");
+  unsigned long startTime = millis();
+  while(millis() - startTime < 10000)   // make the calibration take 10 seconds
+  {
+    reflectanceSensors.calibrate();
+  }
+  robot.sout->println("done");
+  
+  // print the calibration minimum values measured when emitters were on
+  robot.sout->print("min: ");
+  for (byte i = 0; i < NUM_SENSORS; i++)
+  {
+    robot.sout->print(reflectanceSensors.calibratedMinimumOn[i]);
+    robot.sout->print(' ');
+  }
+  robot.sout->println();
+  
+  // print the calibration maximum values measured when emitters were on
+  robot.sout->print("max: ");
+  for (byte i = 0; i < NUM_SENSORS; i++)
+  {
+    robot.sout->print(reflectanceSensors.calibratedMaximumOn[i]);
+    robot.sout->print(' ');
+  }
+  robot.sout->println();
 }
 

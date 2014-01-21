@@ -388,7 +388,197 @@ public:
   float distance_target;  
 };
 
+class ActionLineDetect : public RobotAction
+{
+public:
+  ActionLineDetect(unsigned long d=0) : RobotAction(d)
+  {
+  }
 
+  virtual void start()
+  {
+    RobotAction::start();
+  }
+
+  virtual boolean loop()
+  {
+/*    
+    int maxval = 2000;
+    
+//    pinMode(A7,OUTPUT);    
+    digitalWrite(A7,HIGH);
+    pinMode(A7,OUTPUT);
+    
+    delayMicroseconds(10);
+//    delayMicroseconds(100);
+    
+    pinMode(A7,INPUT);
+    digitalWrite(A7,LOW);
+    
+    unsigned long pval = maxval;
+    
+    unsigned long startTime = micros();	
+    // while (micros() - startTime < maxval)
+    do
+    {
+      unsigned int time = micros() - startTime;
+      if (digitalRead(A7) == LOW)
+      {
+        pval = time;
+        break;
+      }
+    }
+    while (micros() - startTime < maxval);
+    robot.sout->println(pval);
+*/    
+    // read calibrated sensor values and obtain a measure of the line position.
+    // Note: the values returned will be incorrect if the sensors have not been properly
+    // calibrated during the calibration phase.
+    unsigned int position = reflectanceSensors.readLine(sensorValues);
+  
+    // To get raw sensor values instead, call:  
+//    reflectanceSensors.read(sensorValues);
+  
+    for (byte i = 0; i < NUM_SENSORS; i++)
+    {
+      robot.sout->print(sensorValues[i]);
+      robot.sout->print(' ');
+    }
+    robot.sout->print("    ");
+    robot.sout->println(position);
+    // robot.sout->println();
+    delay(250);
+    
+    return true;
+  }
+
+  virtual void dump()
+  {
+    robot.sout->println("line detect");
+  }
+};
+
+class ActionStayInBoundary : public RobotAction
+{
+public:
+  ActionStayInBoundary(unsigned long d=0) : RobotAction(d)
+  {
+    duration_reverse = 300;
+    duration_turn = 250;
+  }
+
+  virtual void start()
+  {
+    RobotAction::start();
+    stage = 0;
+    robot.forward_pwm(SPEED_SLOW);
+  }
+
+
+  virtual boolean loop()
+  {
+    unsigned long tnow = millis();
+    if (stage == 1)
+    {
+      // reversing
+      if (tnow - tstart >= duration_reverse + random(100))
+      {
+        // turn
+        robot.spin_pwm(turn_dir,SPEED_SLOW);
+        stage = 2;
+        tstart = tnow;
+      }
+      return true;
+    }
+    if (stage == 2)
+    {
+      // turning
+      if (tnow - tstart >= duration_reverse + random(100))
+      {
+        // forward
+        robot.forward_pwm(SPEED_SLOW);
+        stage = 0;
+        tstart = tnow;
+      }
+    }
+    
+    // read raw sensor values
+    reflectanceSensors.read(sensorValues);
+    detect = 0;
+    for (byte i = 0; i < NUM_SENSORS; i++)
+    {
+      if (sensorValues[i] > 600)
+      {
+        if (i < NUM_SENSORS/2)
+          detect = -1;
+        else
+          detect = 1;
+        break;
+      }
+      // robot.sout->print(sensorValues[i]);
+      // robot.sout->print(' ');
+    }
+    
+    if (detect)
+    {
+      tstart = millis();
+      
+      // reverse
+      if (detect < 0)
+        // to right
+        turn_dir = CW;
+      else
+        // to left
+        turn_dir = CCW;
+        
+      if (turn_dir != last_turn_dir && tstart-last_turn_time < 2 * (duration_reverse+duration_turn))
+      {
+        // if turning CW / CCW in short duration probably stuck in a corner
+        turn_dir = !turn_dir;
+      }
+      if (random(100) < 20)
+      {
+        // randomly change direction
+         turn_dir = !turn_dir;
+      }
+
+      last_turn_time = tstart;
+      last_turn_dir = turn_dir;
+      
+      stage = 1;
+
+      robot.reverse_pwm(SPEED_SLOW);      
+    }
+      
+    
+    // delay(250);
+    
+    return true;
+  }
+
+  virtual void dump()
+  {
+    robot.sout->println("stay in boundary");
+  }
+  
+  int stage = 0;  // 0 = forward
+                  // 1 = reversing
+                  // 2 - turning
+                  
+  int detect = 0;  // 0 = not detected
+                   // -1 = detected to left
+                   // 1 = detected to right
+                   // 2 = detected straight
+                   
+  unsigned long tstart;
+  
+  int duration_reverse;
+  int duration_turn;
+  
+  boolean turn_dir;
+  boolean last_turn_dir;
+  unsigned long last_turn_time;
+};
 
 
 #endif
