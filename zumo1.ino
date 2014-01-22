@@ -6,6 +6,8 @@
 #include <QTRSensors.h>
 #include <ZumoReflectanceSensorArray.h>
 
+// #include <EEPROM.h>
+#include <avr/EEPROM.h>
 
 class RobotAction;
 class Robot;
@@ -77,6 +79,11 @@ ZumoReflectanceSensorArray reflectanceSensors;
 // Define an array for holding sensor values.
 #define NUM_SENSORS 6
 unsigned int sensorValues[NUM_SENSORS];
+
+#define EEPROM_REFLECT      0
+#define EEPROM_REFLECT_LEN  (2*NUM_SENSORS*sizeof(unsigned int))
+#define EEPROM_GYRO         (EEPROM_REFLECT+EEPROM_REFLECT_LEN)
+#define EEPROM_GYRO_LEN     (sizeof(imu.gzero))
 
 ////////////////////////////////////
 
@@ -220,6 +227,9 @@ void setup()
   
   // reflectanceSensors.init();
   reflectanceSensors.init(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
+  
+  read_reflectance_from_eeprom();
+  read_gyro_zero_from_eeprom();
   
   action_scan_rove.pnext_action = &action_forward_rove;
   action_forward_rove.pnext_action = &action_scan_rove;
@@ -442,13 +452,35 @@ void calibrate_gyro( void )
   StopIMU();
   
   imu.gzero = imu.get_g_avg();
+  
+  dump_gzero();
+  
+  // write_gyro_zero_to_eeprom();
+}
+
+void dump_gzero()
+{
   robot.sout->print("Gyro zero(x,y,z) = ");
   robot.sout->print(imu.gzero.x);
   robot.sout->print(",");
   robot.sout->print(imu.gzero.y);
   robot.sout->print(",");
   robot.sout->println(imu.gzero.z);
+
 }
+
+void write_gyro_zero_to_eeprom()
+{
+  int a = EEPROM_GYRO;
+  eeprom_write_block((const void*)&imu.gzero, (void*)a, sizeof(imu.gzero));
+}
+
+void read_gyro_zero_from_eeprom()
+{
+  int a = EEPROM_GYRO;
+  eeprom_read_block((void*)&imu.gzero, (const void*)a, sizeof(imu.gzero));
+}
+
 
 void SetQuickAction(int i)
 {
@@ -822,6 +854,15 @@ void parse_serial_buffer()
         val_neg=0;
         break;
 
+      case 'w': // write calibration date to eeprom;
+        robot.sout->println("Saving reflectance data...");
+        save_reflectance_to_eeprom();
+        robot.sout->println("Saving gyro data...");
+        write_gyro_zero_to_eeprom();
+        robot.sout->println("done.");
+        break;
+
+
 /*        
      case 'z':
        motor_left.Encoder.Oddometry = 0;
@@ -844,6 +885,8 @@ void parse_serial_buffer()
         robot.sout->print("A3=");
         robot.sout->println(analogRead(A3));
 
+        dump_reflectance_calibration();
+        dump_gzero();
 
 /*        
         Serial.print("duration=");
@@ -908,6 +951,9 @@ void parse_serial_buffer()
 void calibrate_reflectance_array()
 {
   robot.sout->println("Calibrating array...");
+  
+  reflectanceSensors.resetCalibration();
+  
   unsigned long startTime = millis();
   while(millis() - startTime < 10000)   // make the calibration take 10 seconds
   {
@@ -915,6 +961,13 @@ void calibrate_reflectance_array()
   }
   robot.sout->println("done");
   
+  dump_reflectance_calibration();
+  
+//  save_reflectance_to_eeprom(0);
+}
+
+void dump_reflectance_calibration()
+{
   // print the calibration minimum values measured when emitters were on
   robot.sout->print("min: ");
   for (byte i = 0; i < NUM_SENSORS; i++)
@@ -932,5 +985,35 @@ void calibrate_reflectance_array()
     robot.sout->print(' ');
   }
   robot.sout->println();
+}
+
+void save_reflectance_to_eeprom()
+{
+  int address = EEPROM_REFLECT;
+  
+  int n = NUM_SENSORS * sizeof(unsigned int);
+  
+  eeprom_write_block((const void*)reflectanceSensors.calibratedMinimumOn, (void*)address, n);
+  eeprom_write_block((const void*)reflectanceSensors.calibratedMaximumOn, (void*)(address+n), n);
+}
+
+int read_reflectance_from_eeprom()
+{
+  int address = EEPROM_REFLECT;
+  
+  int n = NUM_SENSORS * sizeof(unsigned int);
+  
+  if (!reflectanceSensors.calibratedMinimumOn)
+    reflectanceSensors.calibratedMinimumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
+
+  if (!reflectanceSensors.calibratedMaximumOn)
+    reflectanceSensors.calibratedMaximumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
+  
+  eeprom_read_block((void*)reflectanceSensors.calibratedMinimumOn, (const void*)address, n);
+  eeprom_read_block((void*)reflectanceSensors.calibratedMaximumOn, (const void*)(address+n), n);
+
+  dump_reflectance_calibration();
+  
+  return n;
 }
 

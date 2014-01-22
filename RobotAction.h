@@ -388,6 +388,8 @@ public:
   float distance_target;  
 };
 
+#define MAX_SPEED  SPEED_MED
+
 class ActionLineDetect : public RobotAction
 {
 public:
@@ -402,6 +404,7 @@ public:
 
   virtual boolean loop()
   {
+    boolean debugmsg = false;
 /*    
     int maxval = 2000;
     
@@ -434,20 +437,74 @@ public:
     // read calibrated sensor values and obtain a measure of the line position.
     // Note: the values returned will be incorrect if the sensors have not been properly
     // calibrated during the calibration phase.
-    unsigned int position = reflectanceSensors.readLine(sensorValues);
-  
+
+/*  
     // To get raw sensor values instead, call:  
-//    reflectanceSensors.read(sensorValues);
+    reflectanceSensors.read(sensorValues);
   
     for (byte i = 0; i < NUM_SENSORS; i++)
     {
       robot.sout->print(sensorValues[i]);
       robot.sout->print(' ');
     }
+    
+    robot.sout->print(" --> ");
+*/  
+    unsigned int position = reflectanceSensors.readLine(sensorValues);
+    // reflectanceSensors.readCalibrated(sensorValues);
+
+if (debugmsg)
+{
+    for (byte i = 0; i < NUM_SENSORS; i++)
+    {
+      robot.sout->print(sensorValues[i]);
+      robot.sout->print(' ');
+    }
+
+    
     robot.sout->print("    ");
     robot.sout->println(position);
-    // robot.sout->println();
-    delay(250);
+//    robot.sout->println();
+//    delay(250);
+}   
+    
+    // Our "error" is how far we are away from the center of the line, which
+  // corresponds to position 2500.
+  int error = position - 2500;
+
+  // Get motor speed difference using proportional and derivative PID terms
+  // (the integral term is generally not very useful for line following).
+  // Here we are using a proportional constant of 1/4 and a derivative
+  // constant of 6, which should work decently for many Zumo motor choices.
+  // You probably want to use trial and error to tune these constants for
+  // your particular Zumo and line course.
+  // int speedDifference = error / 4 + 6 * (error - lastError);
+  int speedDifference = error / 2 + 1 * (error - lastError);
+   speedDifference /= 4;
+
+  lastError = error;
+
+  // Get individual motor speeds.  The sign of speedDifference
+  // determines if the robot turns left or right.
+  int m1Speed = MAX_SPEED + speedDifference;
+  int m2Speed = MAX_SPEED - speedDifference;
+
+  // Here we constrain our motor speeds to be between 0 and MAX_SPEED.
+  // Generally speaking, one motor will always be turning at MAX_SPEED
+  // and the other will be at MAX_SPEED-|speedDifference| if that is positive,
+  // else it will be stationary.  For some applications, you might want to
+  // allow the motor speed to go negative so that it can spin in reverse.
+  if (m1Speed < 0)
+    m1Speed = 0;
+  if (m2Speed < 0)
+    m2Speed = 0;
+  if (m1Speed > MAX_SPEED)
+    m1Speed = MAX_SPEED;
+  if (m2Speed > MAX_SPEED)
+    m2Speed = MAX_SPEED;
+    
+    robot.left_pwm(FORWARD,m1Speed);
+    robot.right_pwm(FORWARD,m2Speed);
     
     return true;
   }
@@ -456,6 +513,8 @@ public:
   {
     robot.sout->println("line detect");
   }
+  
+  int lastError = 0;
 };
 
 class ActionStayInBoundary : public RobotAction

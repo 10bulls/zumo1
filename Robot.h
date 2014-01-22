@@ -23,6 +23,14 @@ public:
   {
   }
   
+  virtual void left_pwm( int dir, int pwm )
+  {
+  }
+  
+  virtual void right_pwm( int dir, int pwm )
+  {
+  }
+  
   virtual void forward_pwm( int pwm )
   {
     move_pwm(FORWARD,pwm);
@@ -99,6 +107,18 @@ public:
     motor_L->setDir(dir );
     motor_R->setDir(dir );
     motor_L->setPWM(pwm);
+    motor_R->setPWM(pwm);
+  }
+
+  virtual void left_pwm( int dir, int pwm )
+  {
+    motor_L->setDir(dir );
+    motor_L->setPWM(pwm);
+  }
+  
+  virtual void right_pwm( int dir, int pwm )
+  {
+    motor_R->setDir(dir );
     motor_R->setPWM(pwm);
   }
 
