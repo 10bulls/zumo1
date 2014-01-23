@@ -1,7 +1,7 @@
 #ifndef RobotIMU_h_defined
 #define RobotIMU_h_defined
 
-#define IMU_BUFF_SIZE  200
+#define IMU_BUFF_SIZE  400
 
 class RobotIMU
 {
@@ -62,10 +62,13 @@ public:
   {
     pcompass->read();
     pgyro->read();
+	tbuff[buff_index] = millis();
     abuff[buff_index] = pcompass->a;
     mbuff[buff_index] = pcompass->m;
     gbuff[buff_index] = pgyro->g;
     
+	// 10 / 1000 for 10ms sample rate
+	// 
     degrees += (gbuff[buff_index].z - gzero.z) * 0.00875 * 10.0 / 1000.0;
     
     if (log_max)
@@ -173,12 +176,31 @@ public:
     return d;
   }
   
-  
-  
+  float pitch()
+  {
+    // scale by 1/000 as reading is 1mg per LSB
+    float ax = (pcompass->a.x >> 4);
+    float ay = (pcompass->a.y >> 4);
+    float az = (pcompass->a.z >> 4);
+
+	return (atan2(ax,sqrt(ay*ay+az*az)) * 180.0)/M_PI;
+  }
+
+  float roll()
+  {
+    // scale by 1/000 as reading is 1mg per LSB
+    float ax = (pcompass->a.x >> 4);
+    float ay = (pcompass->a.y >> 4);
+    float az = (pcompass->a.z >> 4);
+
+	return (atan2(ay,-az) * 180.0)/M_PI;
+  }
+
+
   void dump_buffer( Stream * s )
   {
     int n = 0;
-    s->println("G.X\tG.Y\tG.Z\tA.X\tA.Y\tA.Z\tM.X\tM.Y\tM.Z\tHEADING");
+    s->println("ms\tG.X\tG.Y\tG.Z\tA.X\tA.Y\tA.Z\tM.X\tM.Y\tM.Z\tHEADING");
     for (int i=buff_start; n < buff_len; i++,n++)
     {
       if (i >= IMU_BUFF_SIZE) i=0;
@@ -266,17 +288,19 @@ public:
 
   void dump_buffer_item( Stream * s, int i )
   {
+	s->print(tbuff[i] - tbuff[buff_start]);
+	s->print("\t");
     s->print(gbuff[i].x);
     s->print("\t");
     s->print(gbuff[i].y);
     s->print("\t");
     s->print(gbuff[i].z);
     s->print("\t");
-    s->print(abuff[i].x);
+    s->print(abuff[i].x >> 4);
     s->print("\t");
-    s->print(abuff[i].y);
+    s->print(abuff[i].y >> 4);
     s->print("\t");
-    s->print(abuff[i].z);
+    s->print(abuff[i].z >> 4);
     s->print("\t");
     s->print(mbuff[i].x);
     s->print("\t");
@@ -397,6 +421,7 @@ public:
   int samples;
   
   // accelerometer buffer
+  unsigned long tbuff[IMU_BUFF_SIZE];
   LSM303::vector<int16_t> abuff[IMU_BUFF_SIZE];
   LSM303::vector<int16_t> mbuff[IMU_BUFF_SIZE];
   L3G::vector gbuff[IMU_BUFF_SIZE];

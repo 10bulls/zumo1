@@ -1,4 +1,3 @@
-
 #include <Wire.h>
 #include <LSM303.h>
 #include <L3G.h>
@@ -84,6 +83,8 @@ unsigned int sensorValues[NUM_SENSORS];
 #define EEPROM_REFLECT_LEN  (2*NUM_SENSORS*sizeof(unsigned int))
 #define EEPROM_GYRO         (EEPROM_REFLECT+EEPROM_REFLECT_LEN)
 #define EEPROM_GYRO_LEN     (sizeof(imu.gzero))
+#define EEPROM_COMPASS      (EEPROM_GYRO+EEPROM_GYRO_LEN)
+#define EEPROM_COMPASS_LEN	(2*sizeof(LSM303::vector<int16_t>))
 
 ////////////////////////////////////
 
@@ -123,7 +124,7 @@ ActionSpin action_spin_100ms(CW,0,SPEED_SLOW,DEFAULT_DURATION);
 ActionSpin action_spin_45deg(CW,45,SPEED_SLOW,10000);
 ActionSpin action_fast_spin(CW,0,SPEED_FAST,4000);
 
-ActionRepel action_repel(12);
+ActionRepel action_repel(10);
 
 ActionScan action_scan(CW,34,SPEED_SLOW,3000);
 
@@ -141,6 +142,10 @@ ActionMove action_forward_rove2_ccw(FORWARD,SPEED_MED,15, 5000);
 ActionLineDetect action_line_detect;
 ActionStayInBoundary action_in_boundary;
 
+ActionHeading action_heading(90.0,5000);
+
+ActionAccelerometerTest accelerometer_test(500);
+
 RobotAction * QuickActions []
 {
   &action_rest,        // 0
@@ -148,9 +153,11 @@ RobotAction * QuickActions []
   &action_repel,       // 2
   &action_scan,        // 3
   &action_fast_spin,   // 4
-  &action_scan2,       // 5
+//  &action_scan2,       // 5
+  &action_heading,		 // 5
   &action_scan2_rove,    // 6
-  &action_scan2_ccw,       // 7
+//  &action_scan2_ccw,       // 7
+  &accelerometer_test,      // 7
 //  &action_scan2_rove_ccw,    // 8
   &action_line_detect,    // 8
   &action_in_boundary      // 9
@@ -164,93 +171,129 @@ int quick_action = 0;
 
 void Robot::setAction( RobotAction * action )
 {
-  if (paction) paction->end();
-  if (action)
-    paction = action;
-  else
-    paction = &action_rest;
-  if (paction) 
-  {
-//    unsigned long tnow = millis();
-//    sout->println(tnow-tlast);
-//    tlast = tnow;
-    paction->dump();
-    paction->start();
-  }
+	// if current action already set ignore (likely due to switch bounce or multiple IR)
+	if (paction == action) 
+	{
+		// reset start time?
+		paction-> tstart = millis();
+		return;
+	}
+
+	if (paction) paction->end();
+	
+	if (action)
+		paction = action;
+	else
+		paction = &action_rest;
+	if (paction) 
+	{
+		//    unsigned long tnow = millis();
+		//    sout->println(tnow-tlast);
+		//    tlast = tnow;
+		paction->dump();
+		paction->start();
+	}
 }
 
 
 void setup()
 {
-  delay(500);
-//  Serial.begin(9600);
-  Serial.begin(57600);
-  Serial3.begin(9600);
-  Wire.begin();
-  
-  pinMode( LED_PIN, OUTPUT );
-  
-  robot.setup();
-  
-//  analogReference(EXTERNAL);
-  pinMode( IR_FRONT, INPUT );
-  pinMode( A1, INPUT );
-  pinMode( A3, INPUT );
-  
-  pinMode( BUTTON_PIN, INPUT_PULLUP );
-  
-  irrecv.enableIRIn(); // Start the receiver
-  
-  compass.init();
-  compass.enableDefault();
-  // TODO: run an automated calibration
+	delay(500);
+	//  Serial.begin(9600);
+	Serial.begin(57600);
+	//  Serial3.begin(9600);
+	Serial3.begin(115200);
+
   /*
-  compass.m_min = (LSM303::vector<int16_t>){-261, -29, -443};
-  compass.m_max = (LSM303::vector<int16_t>){+666, +897, +453};
-  */
-  /*
-  compass.m_min = (LSM303::vector<int16_t>){-467, -178, -588};
-  compass.m_max = (LSM303::vector<int16_t>){+581, +884, +410};
+  delay(1000);
+  change the bluetooth baud rate to 115200 bps
+  Serial.print("sending AT+BAUD8...");
+  Serial3.print("AT+BAUD8");
+	for(;;)
+	{
+		if (Serial3.available() > 0)
+		{
+			int ch = Serial3.read();
+			// echo character to Serial
+			Serial.write(ch);
+		}
+	}
 */
-  compass.m_min = (LSM303::vector<int16_t>){-295, -57, -501};
-  compass.m_max = (LSM303::vector<int16_t>){+589, +1014, +385};
 
-
-  if (!gyro.init())
-  {
-    robot.sout->println("Failed to autodetect gyro type!");
-  }
-  else
-  {
-    gyro.enableDefault();
-  }
+	Wire.begin();
   
-  // reflectanceSensors.init();
-  reflectanceSensors.init(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
+	pinMode( LED_PIN, OUTPUT );
   
-  read_reflectance_from_eeprom();
-  read_gyro_zero_from_eeprom();
+	robot.setup();
   
-  action_scan_rove.pnext_action = &action_forward_rove;
-  action_forward_rove.pnext_action = &action_scan_rove;
-
-  action_scan2_rove.pnext_action = &action_forward_rove2;
-  action_forward_rove2.pnext_action = &action_scan2_rove;
-
-  action_scan2_rove_ccw.pnext_action = &action_forward_rove2_ccw;
-  action_forward_rove2_ccw.pnext_action = &action_scan2_rove_ccw;
-
-
-  robot.setAction(&action_rest);
+	//  analogReference(EXTERNAL);
+	pinMode( IR_FRONT, INPUT );
+	pinMode( A1, INPUT );
+	pinMode( A3, INPUT );
   
-  /*
-  tone(BUZZER_PIN,1000);
-  delay(500);
-  noTone(BUZZER_PIN);
-  */
-  // MotorTest( 1000, 500 );
+	pinMode( BUTTON_PIN, INPUT_PULLUP );
   
-  // imu.log_max = true;
+	irrecv.enableIRIn(); // Start the receiver
+  
+	compass.init();
+	compass.enableDefault();
+
+	// 0x47 = 0b01000111
+	// ODR = 0100 (50 Hz ODR); LPen = 0 (normal mode); Zen = Yen = Xen = 1 (all axes enabled)
+	// 0x77 = 0b01110111
+	// ODR = 0111 (400 Hz ODR); LPen = 0 (normal mode); Zen = Yen = Xen = 1 (all axes enabled)
+
+	compass.writeAccReg(LSM303::CTRL_REG1_A, 0x77);
+
+	/*
+	compass.m_min = (LSM303::vector<int16_t>){-295, -57, -501};
+	compass.m_max = (LSM303::vector<int16_t>){+589, +1014, +385};
+	*/
+	read_compass_config_from_eeprom();
+
+	if (!gyro.init())
+	{
+		robot.sout->println("Failed to autodetect gyro type!");
+	}
+	else
+	{
+		gyro.enableDefault();
+	}
+
+	// 0x0F = 0b00001111
+	// Normal power mode, all axes enabled, 90Hz
+	// 0x8F = 0b10001111
+	// Normal power mode, all axes enabled, 380Hz
+	gyro.writeReg(L3G_CTRL_REG1, 0x8F);
+
+	// reflectanceSensors.init();
+	reflectanceSensors.init(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
+	
+	// Read calibration and config settings from EEPROM
+	read_reflectance_from_eeprom();
+	read_gyro_zero_from_eeprom();
+  
+	action_scan_rove.pnext_action = &action_forward_rove;
+	action_forward_rove.pnext_action = &action_scan_rove;
+
+	action_scan2_rove.pnext_action = &action_forward_rove2;
+	action_forward_rove2.pnext_action = &action_scan2_rove;
+
+	action_scan2_rove_ccw.pnext_action = &action_forward_rove2_ccw;
+	action_forward_rove2_ccw.pnext_action = &action_scan2_rove_ccw;
+
+	robot.setAction(&action_rest);
+  
+	// Serial.println("Hello minion!");
+
+	/*
+	tone(BUZZER_PIN,1000);
+	delay(500);
+	noTone(BUZZER_PIN);
+	*/
+	// MotorTest( 1000, 500 );
+  
+	// imu.log_max = true;
 }
 
 
@@ -760,10 +803,13 @@ void parse_serial_buffer()
         StopIMU();
         //compass.m_min = imu.mmin;
         //compass.m_max = imu.mmax;
+		/*
         robot.sout->println("CALIBRATE");
         calibrate_gyro();
         delay(100);
         calibrate_reflectance_array();
+		*/
+		compass_calibrate(true);
         break;
         
       case 'P':
@@ -859,6 +905,8 @@ void parse_serial_buffer()
         save_reflectance_to_eeprom();
         robot.sout->println("Saving gyro data...");
         write_gyro_zero_to_eeprom();
+		robot.sout->println("Saving compass data...");
+		write_compass_config_to_eeprom();
         robot.sout->println("done.");
         break;
 
@@ -876,8 +924,14 @@ void parse_serial_buffer()
         {
           robot.paction->dump();
         }
+		
+		compass.read();
+		robot.sout->print("pitch=");
+		robot.sout->println(imu.pitch());
+		robot.sout->print("roll=");
+		robot.sout->println(imu.roll());
         
-        robot.sout->print("A1=");
+        robot.sout->print("batt=");
         robot.sout->print((float)analogRead(A1) * 3.3 * 1.5 / 1023.0);
         robot.sout->println("V");
         robot.sout->print("A9=");
@@ -887,6 +941,7 @@ void parse_serial_buffer()
 
         dump_reflectance_calibration();
         dump_gzero();
+		dump_compass_config();
 
 /*        
         Serial.print("duration=");
@@ -1015,5 +1070,76 @@ int read_reflectance_from_eeprom()
   dump_reflectance_calibration();
   
   return n;
+}
+
+void compass_calibrate(boolean auto_rotate)
+{
+	robot.sout->println("Rotate compass about all axis");
+
+	// save current min/max Z
+	int minz = compass.m_min.z;
+	int maxz = compass.m_max.z;
+
+	if (auto_rotate)
+	{
+		robot.spin_pwm(CW,SPEED_SLOW);
+	}
+
+	imu.start();
+
+	imu.log_max = true;
+
+	for(unsigned int t=millis(); millis()-t < 10000; )
+	{
+		imu.loop();
+	}
+
+	if (auto_rotate)
+	{
+		robot.stop();
+		// if auto rotate, restore current min/max Z as we are just spinning about Z axis...
+		imu.mmin.z = minz;
+		imu.mmax.z = maxz;
+	}
+
+	imu.stop();
+
+	compass.m_min = imu.mmin;
+	compass.m_max = imu.mmax;
+
+	dump_compass_config();
+}
+
+int read_compass_config_from_eeprom()
+{
+	int a = EEPROM_COMPASS;
+	eeprom_read_block((void*)&compass.m_min, (const void*)a, sizeof(LSM303::vector<int16_t>));
+	a += sizeof(LSM303::vector<int16_t>);
+	eeprom_read_block((void*)&compass.m_max, (const void*)a, sizeof(LSM303::vector<int16_t>));
+}
+
+void write_compass_config_to_eeprom()
+{
+	int a = EEPROM_COMPASS;
+	eeprom_write_block((const void*)&compass.m_min, (void*)a, sizeof(LSM303::vector<int16_t>));
+	a += sizeof(LSM303::vector<int16_t>);
+	eeprom_write_block((const void*)&compass.m_max, (void*)a, sizeof(LSM303::vector<int16_t>));
+}
+
+void dump_compass_config()
+{
+  robot.sout->print("compass.min(x,y,z) = ");
+  robot.sout->print(compass.m_min.x);
+  robot.sout->print(",");
+  robot.sout->print(compass.m_min.y);
+  robot.sout->print(",");
+  robot.sout->println(compass.m_min.z);
+  robot.sout->print("compass.max(x,y,z) = ");
+  robot.sout->print(compass.m_max.x);
+  robot.sout->print(",");
+  robot.sout->print(compass.m_max.y);
+  robot.sout->print(",");
+  robot.sout->println(compass.m_max.z);
+
 }
 

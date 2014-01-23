@@ -71,6 +71,7 @@ public:
     direction = dir;
     degree_target = degree;
     speed_pwm = pwm;
+	degrees=0;
   }
 
   virtual void start()
@@ -78,9 +79,13 @@ public:
     RobotAction::start();
     if (degree_target > 0)
     {
-      StartIMU();
+	  imu.start();
+      // StartIMU();
     }
+	degrees=0;
+	gyro.read();
     robot.spin_pwm(direction,speed_pwm);
+	time_us = micros();
   }
 
   virtual boolean loop()
@@ -89,27 +94,44 @@ public:
 
     if (degree_target > 0)
     {
+		/*
       // Read compass
       if (!imu_timer_running)
       {
         compass.read();
       }
+	  */
+
+	  	imu.loop();
+//!		 gyro.read();
+
+		unsigned long us = micros();
+
+		float dt = us - time_us;
+
+		time_us = us;
+
+		degrees += (gyro.g.z - imu.gzero.z) * 0.00875 * (float)dt / 1.0e6;
       
       float diff = 0;
     
       if (direction==CW)
       {
-        diff = degree_target - imu.degrees;
+        // diff = degree_target - imu.degrees;
+		  diff = degree_target - degrees;
       }
       else
       {
-        diff = degree_target + imu.degrees;
+        // diff = degree_target + imu.degrees;
+		  diff = degree_target + degrees;
       }
       
       //robot.sout->print("d=");      
       //robot.sout->println(diff);      
       
-      if (diff < 0)
+	  // NOTE: allow 1.2 degrees 'stopping' distance
+	  // TODO: should instead PID adjust pwm depending on error
+      if (diff - 1.2 < 0)
       {
         return false;
       }
@@ -121,13 +143,27 @@ public:
   {
     RobotAction::end();
     // rely on RestAction to stop, to prevent jerky continuous movement
-    // robot.stop();
-    if (degree_target > 0)
+	// robot.stop();    
+	
+	if (degree_target > 0)
     {
-      StopIMU();
+		// StopIMU();
+		robot.stop();
+		for(int i=0;i<50;i++)
+		{
+			imu.loop();
+			// gyro.read();
+			unsigned long us = micros();
+			float dt = us - time_us;
+			time_us = us;
+			degrees += (gyro.g.z - imu.gzero.z) * 0.00875 * (float)dt / 1.0e6;
+		}
+		imu.stop();
+		//imu.dump_buffer(robot.sout);
     }
     robot.sout->print("gyro change=");      
-    robot.sout->println(imu.degrees);      
+    // robot.sout->println(imu.degrees);      
+	robot.sout->println(degrees);      
   }
 
   virtual void dump()
@@ -138,14 +174,103 @@ public:
     robot.sout->println(" deg)");  
   }
   
-  boolean direction;
-  int speed_pwm;
-  float degree_target;
-  float heading_target;
-  float heading_start;
+	unsigned long time_us;
+	float degrees;
+	boolean direction;
+	int speed_pwm;
+	float degree_target;
+	float heading_target;
+	float heading_start;
   
   
 };
+
+class ActionHeading : public RobotAction
+{
+public:
+  ActionHeading(float heading=0, unsigned long d=0 ) : RobotAction(d)
+  {
+    direction = CW;
+    heading_target = heading;
+  }
+
+  virtual void start()
+  {
+    RobotAction::start();
+	compass.read();
+	heading = imu.getHeading();
+  }
+
+  virtual boolean loop()
+  {
+    if (!RobotAction::loop()) return false;
+
+	compass.read();
+	heading = imu.getHeading();
+
+	float diff = heading_target - heading;
+
+	if (diff >= 360.0) diff -= 360.0;
+
+	if (abs(diff) < 1.0)
+	{
+		// close enough
+		robot.stop();
+	}
+	else if (diff > 0 && diff <= 180.0)
+	{
+		direction = CW;
+		speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
+		robot.spin_pwm(direction,speed_pwm);
+	}
+	else if (diff > 180.0)
+	{
+		diff -= 180.0;
+		direction = CCW;
+		speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
+		robot.spin_pwm(direction,speed_pwm);
+	}
+	else if (diff >= -180.0 && diff < 0)		// -180.0 to 0
+	{
+		diff = -diff;
+		direction = CCW;
+		speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
+		robot.spin_pwm(direction,speed_pwm);
+	}
+	else if (diff < -180.0)		// -180.0 to 0
+	{
+		diff = 360 + diff;
+		direction = CW;
+		speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
+		robot.spin_pwm(direction,speed_pwm);
+	}
+    return true;
+  }
+
+  virtual void end()
+  {
+    RobotAction::end();
+    robot.sout->print("heading=");      
+    // robot.sout->println(imu.degrees);      
+	robot.sout->println(imu.getHeading());      
+  }
+
+  virtual void dump()
+  {
+    robot.sout->print("heading(");
+    robot.sout->print(heading_target);
+    robot.sout->println(" deg)");  
+  }
+  
+	unsigned long time_us;
+	boolean direction;
+	int speed_pwm;
+	float heading_target;
+	float heading;
+  
+  
+};
+
 
 class ActionScan : public ActionSpin
 {
@@ -349,7 +474,7 @@ public:
 
     // robot.sout->println(robot.proximity->distance);
   
-    if (robot.proximity->distance > 60 || robot.proximity->distance < 8 )
+    if (robot.proximity->distance > 40 || robot.proximity->distance < 5 )
     {
       // error or really close to target
       robot.stop();
@@ -366,10 +491,11 @@ public:
       if (diff < 0) 
       {
         dir = REVERSE;
-        diff = -diff;
+        diff = -2.0 * diff;	// reverse faster than forwards
       }
-      if (diff > 10.0) diff = 10.0;
-      int speed = SPEED_MED * diff / 10.0;
+      if (diff > alpha) diff = alpha;
+      // int speed = SPEED_MED * diff / alpha;
+	  int speed = SPEED_FAST * diff / alpha;
       
       robot.sout->print("v=");
       robot.sout->println(speed);
@@ -386,6 +512,9 @@ public:
   }
 
   float distance_target;  
+  float alpha = 10.0;
+  // over this distance will be 'full' speed
+  // float alpha = 5.0;
 };
 
 #define MAX_SPEED  SPEED_MED
@@ -404,6 +533,8 @@ public:
 
   virtual boolean loop()
   {
+	if (!RobotAction::loop()) return false;
+
     boolean debugmsg = false;
 /*    
     int maxval = 2000;
@@ -522,20 +653,27 @@ class ActionStayInBoundary : public RobotAction
 public:
   ActionStayInBoundary(unsigned long d=0) : RobotAction(d)
   {
+    /*
     duration_reverse = 300;
     duration_turn = 250;
+    */
+    duration_reverse = 150;
+    duration_turn = 150;
   }
 
   virtual void start()
   {
     RobotAction::start();
     stage = 0;
-    robot.forward_pwm(SPEED_SLOW);
+    // robot.forward_pwm(SPEED_SLOW);
+    robot.forward_pwm(SPEED_FAST);
   }
 
 
   virtual boolean loop()
   {
+	if (!RobotAction::loop()) return false;
+
     unsigned long tnow = millis();
     if (stage == 1)
     {
@@ -543,7 +681,8 @@ public:
       if (tnow - tstart >= duration_reverse + random(100))
       {
         // turn
-        robot.spin_pwm(turn_dir,SPEED_SLOW);
+        // robot.spin_pwm(turn_dir,SPEED_SLOW);
+        robot.spin_pwm(turn_dir,SPEED_FAST);
         stage = 2;
         tstart = tnow;
       }
@@ -555,7 +694,8 @@ public:
       if (tnow - tstart >= duration_reverse + random(100))
       {
         // forward
-        robot.forward_pwm(SPEED_SLOW);
+        // robot.forward_pwm(SPEED_SLOW);
+        robot.forward_pwm(SPEED_FAST);
         stage = 0;
         tstart = tnow;
       }
@@ -606,7 +746,8 @@ public:
       
       stage = 1;
 
-      robot.reverse_pwm(SPEED_SLOW);      
+      // robot.reverse_pwm(SPEED_SLOW);      
+      robot.reverse_pwm(SPEED_FAST);      
     }
       
     
@@ -639,5 +780,119 @@ public:
   unsigned long last_turn_time;
 };
 
+
+class ActionAccelerometerTest : public RobotAction
+{
+public:
+  ActionAccelerometerTest(unsigned long d=0) : RobotAction(d)
+  {
+  }
+
+  virtual void start()
+  {
+	RobotAction::start();
+
+	imu.log_max = true;
+	// StartIMU();
+	imu.start();
+	robot.forward_pwm(SPEED_MED);
+	time_us = micros();
+	acceleration = 0;
+	velocity = 0;
+	distance = 0;
+  }
+
+  virtual void end()
+  {
+	imu.stop();
+	// StopIMU();
+	robot.stop();
+	// delay(200);
+	// StopIMU();
+
+	robot.sout->println("MIN.X\tMIN.Y\tMIN.Z\tMAX.X\tMAX.Y\tMAX.Z");
+
+    robot.sout->print(imu.amin.x >> 4);
+    robot.sout->print("\t");
+    robot.sout->print(imu.amin.y >> 4);
+    robot.sout->print("\t");
+    robot.sout->print(imu.amin.z >> 4);
+    robot.sout->print("\t");
+    robot.sout->print(imu.amax.x >> 4);
+    robot.sout->print("\t");
+    robot.sout->print(imu.amax.y >> 4);
+    robot.sout->print("\t");
+    robot.sout->println(imu.amax.z >>4 );
+
+	robot.sout->print("distance=");
+	robot.sout->println(distance);
+
+//	imu.dump_buffer(robot.sout);
+
+  }
+
+
+  virtual boolean loop()
+  {
+	if (!RobotAction::loop()) return false;
+
+	imu.loop();
+
+	unsigned long us = micros();
+
+	float dt = us - time_us;
+
+	time_us = us;
+
+	float acc = (compass.a.x >> 4)*9.81/1000.0;
+
+	velocity += (acc + acceleration)/2.0 * (float)dt / 1.0e6;
+
+	distance += velocity * (float)dt / 1.0e6;
+
+	acceleration = acc;
+	
+	if ((imu.amin.x >> 4) < -1000) 
+	{
+		robot.sout->println("OUCH!");
+		return false;
+	}
+
+
+	
+	/*
+//    unsigned long tnow = millis();
+//    dt = (float)(tnow - t) / 1000.0;
+    
+//    t = tnow;
+    
+    // convert 16bit (left justified) to 12bit
+    // scale by 1/000 as reading is 1mg per LSB
+    float ax = (compass.a.x >> 4);
+    float ay = (compass.a.y >> 4);
+    float az = (compass.a.z >> 4);
+    
+//    a += 10;
+    
+    //a_avg += a;
+//    v += a * dt * 9.8 / 2000.0;  // ms-1
+//    d += v * dt / 2.0;
+//    samples++;
+
+	*/
+    return true;
+  }
+
+  virtual void dump()
+  {
+    robot.sout->println("accelerometer");
+  }
+
+  unsigned long time_us;
+
+  float velocity;
+  float distance;
+  float acceleration;
+};
 
 #endif
