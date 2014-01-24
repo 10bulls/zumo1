@@ -142,7 +142,7 @@ ActionMove action_forward_rove2_ccw(FORWARD,SPEED_MED,15, 5000);
 ActionLineDetect action_line_detect;
 ActionStayInBoundary action_in_boundary;
 
-ActionHeading action_heading(90.0,5000);
+ActionHeading action_heading(90.0,0);
 
 ActionAccelerometerTest accelerometer_test(500);
 

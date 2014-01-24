@@ -185,90 +185,157 @@ public:
   
 };
 
+#define NUM_SAMPLES 2
+
 class ActionHeading : public RobotAction
 {
 public:
-  ActionHeading(float heading=0, unsigned long d=0 ) : RobotAction(d)
-  {
-    direction = CW;
-    heading_target = heading;
-  }
-
-  virtual void start()
-  {
-    RobotAction::start();
-	compass.read();
-	heading = imu.getHeading();
-  }
-
-  virtual boolean loop()
-  {
-    if (!RobotAction::loop()) return false;
-
-	compass.read();
-	heading = imu.getHeading();
-
-	float diff = heading_target - heading;
-
-	if (diff >= 360.0) diff -= 360.0;
-
-	if (abs(diff) < 1.0)
-	{
-		// close enough
-		robot.stop();
-	}
-	else if (diff > 0 && diff <= 180.0)
+	ActionHeading(float heading=0, unsigned long d=0 ) : RobotAction(d)
 	{
 		direction = CW;
-		speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
-		robot.spin_pwm(direction,speed_pwm);
+		heading_target = heading;
 	}
-	else if (diff > 180.0)
-	{
-		diff -= 180.0;
-		direction = CCW;
-		speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
-		robot.spin_pwm(direction,speed_pwm);
-	}
-	else if (diff >= -180.0 && diff < 0)		// -180.0 to 0
-	{
-		diff = -diff;
-		direction = CCW;
-		speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
-		robot.spin_pwm(direction,speed_pwm);
-	}
-	else if (diff < -180.0)		// -180.0 to 0
-	{
-		diff = 360 + diff;
-		direction = CW;
-		speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
-		robot.spin_pwm(direction,speed_pwm);
-	}
-    return true;
-  }
 
-  virtual void end()
-  {
-    RobotAction::end();
-    robot.sout->print("heading=");      
-    // robot.sout->println(imu.degrees);      
-	robot.sout->println(imu.getHeading());      
-  }
+	virtual void start()
+	{
+		RobotAction::start();
+		compass.read();
+		heading = imu.getHeading();
+	
+		speed_pwm = 0;
+		error = 0;
+		total_error = 0;
+	
+		isample = 0;
+		samplesum = heading * NUM_SAMPLES;
+		for (int i=0;i<NUM_SAMPLES;i++) samples[i] = heading;
 
-  virtual void dump()
-  {
-    robot.sout->print("heading(");
-    robot.sout->print(heading_target);
-    robot.sout->println(" deg)");  
-  }
+		robot.sout->print("heading");
+		robot.sout->print("\t");
+		robot.sout->print("error");
+		robot.sout->print("\t");
+		robot.sout->print("total_error");
+		robot.sout->print("\t");
+		robot.sout->print("pid");
+		robot.sout->print("\t");
+		robot.sout->println("speed_pwm");
+
+	
+	}
+	
+	float normalise_angle_diff( float d )
+	{
+		if (d > 360)
+			d -= 360;
+
+		// 0 : 180
+		if (d >= 0 && d <= 180) 
+			return d;
+
+		// 180 : 360
+		if (d > 180)
+			return d - 360;
+
+		// 0 : - 180
+		if (d < 0 && d >= -180)
+			return d;
+		
+		// -180 : -360
+		return 360 + d;
+	}
+
+
+	virtual boolean loop()
+	{
+		if (!RobotAction::loop()) return false;
+
+		compass.read();
+		// heading = imu.getHeading();
+		// running average...
+		samplesum -= samples[isample];
+		samples[isample] = imu.getHeading();
+		samplesum += samples[isample];
+		isample++;
+		if (isample == NUM_SAMPLES) isample=0;
+		heading = samplesum / (float)NUM_SAMPLES;
+
+		error = normalise_angle_diff(heading_target - heading);
+
+		total_error += error;
+
+//		if (abs(error) < 1.0)
+//		{
+//			// close enough
+//			speed_pwm = 0;
+//			robot.stop();
+//		}
+//		else
+//		{
+			float pid = Kp*error + Ki*total_error + Kd*(error-last_error);
+
+			speed_pwm = constrain( speed_pwm + pid, -200, 200);
+
+			robot.sout->print(heading);
+			robot.sout->print("\t");
+			robot.sout->print(error);
+			robot.sout->print("\t");
+			robot.sout->print(total_error);
+			robot.sout->print("\t");
+			robot.sout->print(pid);
+			robot.sout->print("\t");
+			robot.sout->println(speed_pwm);
+
+			if (speed_pwm >= 0)
+				direction = CW;
+			else
+				direction = CCW;
+
+			// speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
+			if (abs(speed_pwm) < 20)
+				robot.stop();
+			else
+				robot.spin_pwm(direction,(int)abs(speed_pwm));
+//		}
+
+		last_error = error;
+
+		return true;
+	}
+
+	virtual void end()
+	{
+		RobotAction::end();
+		robot.sout->print("heading=");      
+		// robot.sout->println(imu.degrees);      
+		robot.sout->println(imu.getHeading());      
+	}
+
+	virtual void dump()
+	{
+		robot.sout->print("heading(");
+		robot.sout->print(heading_target);
+		robot.sout->println(" deg)");  
+	}
   
+
 	unsigned long time_us;
 	boolean direction;
-	int speed_pwm;
+	float speed_pwm;
 	float heading_target;
 	float heading;
+	float samples[NUM_SAMPLES];
+	float samplesum;
+	int isample;
   
-  
+	// PID
+	float Kp = 0.012;
+	//float Ki = 0.0000002;
+	float Ki = 0.0000000;
+	float Kd = 1.7;
+
+	float error;
+	float total_error;
+	float last_error;
 };
 
 
