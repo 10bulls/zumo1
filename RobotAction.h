@@ -185,7 +185,7 @@ public:
   
 };
 
-#define NUM_SAMPLES 2
+#define NUM_SAMPLES 10
 
 class ActionHeading : public RobotAction
 {
@@ -216,9 +216,13 @@ public:
 		robot.sout->print("\t");
 		robot.sout->print("total_error");
 		robot.sout->print("\t");
+		robot.sout->print("predicted");
+		robot.sout->print("\t");
 		robot.sout->print("pid");
 		robot.sout->print("\t");
 		robot.sout->println("speed_pwm");
+
+		time_us = micros();
 
 	
 	}
@@ -250,6 +254,14 @@ public:
 		if (!RobotAction::loop()) return false;
 
 		compass.read();
+		gyro.read();
+
+		unsigned long us = micros();
+
+		float dt = us - time_us;
+
+		time_us = us;
+
 		// heading = imu.getHeading();
 		// running average...
 		samplesum -= samples[isample];
@@ -261,7 +273,7 @@ public:
 
 		error = normalise_angle_diff(heading_target - heading);
 
-		total_error += error;
+		// total_error += error;
 
 //		if (abs(error) < 1.0)
 //		{
@@ -271,7 +283,12 @@ public:
 //		}
 //		else
 //		{
-			float pid = Kp*error + Ki*total_error + Kd*(error-last_error);
+
+			// use gyro to calculate predicted degree change
+			float ddegree = (gyro.g.z - imu.gzero.z) * 0.00875 * (float)dt / 1.0e6;
+
+			float pid = Kp*error + Ki*total_error + Kd*(-ddegree);
+			// float pid = Kp*error + Ki*total_error + Kd*(error-last_error);
 
 			speed_pwm = constrain( speed_pwm + pid, -200, 200);
 
@@ -280,6 +297,8 @@ public:
 			robot.sout->print(error);
 			robot.sout->print("\t");
 			robot.sout->print(total_error);
+			robot.sout->print("\t");
+			robot.sout->print(error-ddegree);
 			robot.sout->print("\t");
 			robot.sout->print(pid);
 			robot.sout->print("\t");
@@ -298,6 +317,8 @@ public:
 //		}
 
 		last_error = error;
+
+		total_error += error;
 
 		return true;
 	}
@@ -328,10 +349,11 @@ public:
 	int isample;
   
 	// PID
-	float Kp = 0.012;
+	float Kp = 0.020;
 	//float Ki = 0.0000002;
 	float Ki = 0.0000000;
-	float Kd = 1.7;
+	// float Kd = 1.5;
+	float Kd = 3.5;
 
 	float error;
 	float total_error;
