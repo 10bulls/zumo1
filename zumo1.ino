@@ -1,3 +1,32 @@
+#include <mpython.h>
+
+/*
+extern "C" {
+#include "nlr.h"
+#include "misc.h"
+#include "mpconfig.h"
+#include "mpqstr.h"
+#include "obj.h"
+#include "lexer.h"
+#include "lexermemzip.h"
+#include "parse.h"
+#include "compile.h"
+#include "runtime0.h"
+#include "runtime.h"
+#include "repl.h"
+// teensy
+#include "servo.h"
+#include "usb.h"
+#include "led.h"
+// py
+#include "gc.h"
+
+int xpy_main(void);
+}
+*/
+
+#include "pysystem.h"
+
 #include <Wire.h>
 #include <LSM303.h>
 #include <L3G.h>
@@ -146,6 +175,8 @@ ActionHeading action_heading(90.0,0);
 
 ActionAccelerometerTest accelerometer_test(500);
 
+//ActionPlaySong action_song;
+
 RobotAction * QuickActions []
 {
   &action_rest,        // 0
@@ -158,6 +189,7 @@ RobotAction * QuickActions []
   &action_scan2_rove,    // 6
 //  &action_scan2_ccw,       // 7
   &accelerometer_test,      // 7
+//  &action_song,      // 7
 //  &action_scan2_rove_ccw,    // 8
   &action_line_detect,    // 8
   &action_in_boundary      // 9
@@ -270,9 +302,13 @@ void setup()
 	reflectanceSensors.init(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
 	
 	// Read calibration and config settings from EEPROM
-	read_reflectance_from_eeprom();
+//!	read_reflectance_from_eeprom();
 	read_gyro_zero_from_eeprom();
-  
+
+
+	// xpy_main();
+	// python_setup();
+
 	action_scan_rove.pnext_action = &action_forward_rove;
 	action_forward_rove.pnext_action = &action_scan_rove;
 
@@ -283,19 +319,47 @@ void setup()
 	action_forward_rove2_ccw.pnext_action = &action_scan2_rove_ccw;
 
 	robot.setAction(&action_rest);
+	
   
 	// Serial.println("Hello minion!");
-
-	/*
+/*
 	tone(BUZZER_PIN,1000);
 	delay(500);
 	noTone(BUZZER_PIN);
-	*/
+	pinMode(BUZZER_PIN,INPUT);
+*/
 	// MotorTest( 1000, 500 );
   
 	// imu.log_max = true;
+
+	delay(1000);
+	Serial.println("Testing python...");
+
+	// run_python_cmd_str("print(\"python says hi!\")");
+
+//	led_init();
+//    led_state(PYB_LED_BUILTIN, 1);
+	// xpy_main();
+	python_setup();
+
+	run_python_cmd_str("print(\"python says hi!\")");
 }
 
+#if 0
+void loop()
+{
+
+  /* add main program code here */
+	//for(int i=0;i<10;i++)
+	{
+		digitalWrite(LED_BUILTIN,1);
+		delay(1000);
+		digitalWrite(LED_BUILTIN,0);
+		delay(500);
+	}
+
+}
+#endif
 
 void loop()
 {
@@ -322,7 +386,7 @@ void loop()
     // imu.dump_buffer(robot.sout);
     dump_imu = false;
   }
-  
+
   boolean butt = digitalRead(BUTTON_PIN);
   if (butt != button_state)
   {
@@ -358,9 +422,10 @@ void loop()
   }
 */
 
+
   // Read IR sensor
   robot.proximity->read();
-  
+
   if (robot.paction)
   {
     if (!robot.paction->loop())
@@ -368,7 +433,9 @@ void loop()
       robot.setAction(robot.paction->pnext_action);
     }
   }
+
 }
+
 
 boolean CheckSerial( Stream * s )
 {
@@ -380,18 +447,20 @@ boolean CheckSerial( Stream * s )
     robot.sout = s;
     
     int ch = s->read();
+
+	// s->println((int)ch);
+
     // echo character
     if (ch != 13 && ch != 10)
     {
       s->write(ch);
     }
-
-    if (ch == 13)
+	if (ch == 13)
     {
       s->print("\r\n");
       parse_serial_buffer();
     }
-    else
+    else if (ch != 10)
     {
       if (iserial_buffer > sizeof(serial_buffer)-1)
       {
@@ -675,6 +744,8 @@ int ChHexToInt( int ch )
   return -1;  
 }
 
+char pycmdbuff[3];
+
 void parse_serial_buffer()
 {
     int value_length=0;
@@ -684,6 +755,48 @@ void parse_serial_buffer()
     int ch;
     int nibble;
     
+	Serial.println((unsigned long)pycmdbuff, HEX);
+
+
+	if (serial_buffer_len > 0 && serial_buffer[serial_buffer_start]=='>')
+	{
+//		int ipy=0;
+
+		serial_buffer[serial_buffer_len] = 0;
+		run_python_cmd_str(&serial_buffer[serial_buffer_start+1]);	// ignore the 1st character
+		iserial_buffer = 0;
+		serial_buffer_start = 0;
+		serial_buffer_len = 0;
+		return;
+
+
+		// pycmdbuff[0] = 0;
+
+#if 0
+
+		while(serial_buffer_len > 0 && ipy < (sizeof(pycmdbuff)-1))
+		{
+			ch = serial_buffer[serial_buffer_start];
+			pycmdbuff[ipy++] = ch;
+    
+			serial_buffer_len--;
+		}
+
+			if (serial_buffer_start > sizeof(serial_buffer)-1)
+			{
+				serial_buffer_start = 0;
+			}
+			else
+			{
+				serial_buffer_start++;
+			}
+		}
+		pycmdbuff[ipy++] = 0;
+		run_python_cmd_str(&pycmdbuff[1]);	// ignore the 1st character
+		return;
+#endif
+	}
+
   while(serial_buffer_len > 0)
   {
     ch = serial_buffer[serial_buffer_start];
@@ -1058,11 +1171,18 @@ int read_reflectance_from_eeprom()
   
   int n = NUM_SENSORS * sizeof(unsigned int);
   
+// WARNING!
+//TODO! Using gc_alloc for now to see if will stop crash, but does not also use gc_free
+
   if (!reflectanceSensors.calibratedMinimumOn)
-    reflectanceSensors.calibratedMinimumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
+//TODO:    reflectanceSensors.calibratedMinimumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
+    // reflectanceSensors.calibratedMinimumOn = (unsigned int*)gc_alloc(sizeof(unsigned int)*NUM_SENSORS);
+    reflectanceSensors.calibratedMinimumOn = (unsigned int*)new int [NUM_SENSORS];
 
   if (!reflectanceSensors.calibratedMaximumOn)
-    reflectanceSensors.calibratedMaximumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
+//TODO:    reflectanceSensors.calibratedMaximumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
+    // reflectanceSensors.calibratedMaximumOn = (unsigned int*)gc_alloc(sizeof(unsigned int)*NUM_SENSORS);
+	reflectanceSensors.calibratedMaximumOn = (unsigned int*)new int [NUM_SENSORS];
   
   eeprom_read_block((void*)reflectanceSensors.calibratedMinimumOn, (const void*)address, n);
   eeprom_read_block((void*)reflectanceSensors.calibratedMaximumOn, (const void*)(address+n), n);
@@ -1126,6 +1246,7 @@ void write_compass_config_to_eeprom()
 	eeprom_write_block((const void*)&compass.m_max, (void*)a, sizeof(LSM303::vector<int16_t>));
 }
 
+
 void dump_compass_config()
 {
   robot.sout->print("compass.min(x,y,z) = ");
@@ -1140,6 +1261,5 @@ void dump_compass_config()
   robot.sout->print(compass.m_max.y);
   robot.sout->print(",");
   robot.sout->println(compass.m_max.z);
-
 }
 
