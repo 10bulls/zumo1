@@ -236,6 +236,12 @@ void setup()
 	//  Serial3.begin(9600);
 	Serial3.begin(115200);
 
+	delay(500);
+
+	Serial3.println("Here goes...");
+
+	python_setup();
+
   /*
   delay(1000);
   change the bluetooth baud rate to 115200 bps
@@ -302,7 +308,7 @@ void setup()
 	reflectanceSensors.init(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
 	
 	// Read calibration and config settings from EEPROM
-//!	read_reflectance_from_eeprom();
+	read_reflectance_from_eeprom();
 	read_gyro_zero_from_eeprom();
 
 
@@ -340,7 +346,7 @@ void setup()
 //	led_init();
 //    led_state(PYB_LED_BUILTIN, 1);
 	// xpy_main();
-	python_setup();
+//	python_setup();
 
 	run_python_cmd_str("print(\"python says hi!\")");
 }
@@ -1175,14 +1181,14 @@ int read_reflectance_from_eeprom()
 //TODO! Using gc_alloc for now to see if will stop crash, but does not also use gc_free
 
   if (!reflectanceSensors.calibratedMinimumOn)
-//TODO:    reflectanceSensors.calibratedMinimumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
+    reflectanceSensors.calibratedMinimumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
     // reflectanceSensors.calibratedMinimumOn = (unsigned int*)gc_alloc(sizeof(unsigned int)*NUM_SENSORS);
-    reflectanceSensors.calibratedMinimumOn = (unsigned int*)new int [NUM_SENSORS];
+//    reflectanceSensors.calibratedMinimumOn = (unsigned int*)new int [NUM_SENSORS];
 
   if (!reflectanceSensors.calibratedMaximumOn)
-//TODO:    reflectanceSensors.calibratedMaximumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
+    reflectanceSensors.calibratedMaximumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
     // reflectanceSensors.calibratedMaximumOn = (unsigned int*)gc_alloc(sizeof(unsigned int)*NUM_SENSORS);
-	reflectanceSensors.calibratedMaximumOn = (unsigned int*)new int [NUM_SENSORS];
+//	reflectanceSensors.calibratedMaximumOn = (unsigned int*)new int [NUM_SENSORS];
   
   eeprom_read_block((void*)reflectanceSensors.calibratedMinimumOn, (const void*)address, n);
   eeprom_read_block((void*)reflectanceSensors.calibratedMaximumOn, (const void*)(address+n), n);

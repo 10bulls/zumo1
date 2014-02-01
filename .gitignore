@@ -3,3 +3,5 @@ zumo1.sdf
 zumo1.suo
 zumo1.vcxproj.filters
 zumo1.vcxproj.user
+ipch/
+zumo1.opensdf
