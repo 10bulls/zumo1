@@ -12,6 +12,10 @@
 // #include <EEPROM.h>
 #include <avr/EEPROM.h>
 
+#include <SPI.h>
+#include <SD.h>
+#define SD_CS	10
+
 class RobotAction;
 class Robot;
 
@@ -22,17 +26,22 @@ class Robot;
 
 #define LED_PIN     13
 #define BUZZER_PIN  20
-#define BUTTON_PIN  12
+// #define BUTTON_PIN  12
+#define BUTTON_PIN  33
 
 // If old arduino
 //#define MOTOR_R_DIR  7
 //#define MOTOR_L_DIR  8
 // use 3 and 4 for Teensy (7&8 are Serial3)
-#define MOTOR_R_DIR  3
-#define MOTOR_L_DIR  4
+
+// #define MOTOR_R_DIR  3
+// #define MOTOR_L_DIR  4
+#define MOTOR_R_DIR  1
+#define MOTOR_L_DIR  2
 
 #define MOTOR_R_PWM  9
-#define MOTOR_L_PWM  10
+// #define MOTOR_L_PWM  10
+#define MOTOR_L_PWM  4
 
 #define CW      0
 #define CCW     1
@@ -65,7 +74,8 @@ int serial_buffer_len;
 #include <IRremote.h>
 #include "irstuff.h"
 
-const int RECV_PIN = 11;
+// const int RECV_PIN = 11;
+const int RECV_PIN = 0;
 
 IRrecv irrecv(RECV_PIN);
 // IRsend irsend;
@@ -74,7 +84,8 @@ decode_results results;
 
 ////////////////////////////////////
 
-unsigned char sensorPins[] = { A7, A3, A8, A0, A2, 6 };
+// unsigned char sensorPins[] = { A7, A3, A8, A0, A2, 6 };
+unsigned char sensorPins[] = { A7, A3, A8, A0, A2, 24 };
 
 ZumoReflectanceSensorArray reflectanceSensors;
 // ZumoReflectanceSensorArray reflectanceSensors(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
@@ -202,6 +213,24 @@ void Robot::setAction( RobotAction * action )
 	}
 }
 
+void sd_test()
+{
+	Serial.println("SD DIR...");
+	File root = SD.open("/");
+	if (!root || !root.isDirectory())
+    {
+		Serial.println("Error reading SD");
+		return;
+    }
+
+	for(;;)
+	{
+		File f = root.openNextFile();
+		if (!f) break;
+		Serial.println(f.name());
+		f.close();
+	}
+}
 
 void setup()
 {
@@ -236,6 +265,16 @@ void setup()
 	Wire.begin();
   
 	pinMode( LED_PIN, OUTPUT );
+
+	int sdcard_ok = true;
+	Serial.println("Initializing SD card...");
+	if (!SD.begin(SD_CS)) 
+	{
+		Serial.println("failed!");
+		sdcard_ok = false;
+		// return;
+	}
+
   
 	robot.setup();
   
@@ -319,6 +358,10 @@ void setup()
 //	python_setup();
 
 	run_python_cmd_str("print(\"python says hi!\")");
+
+	sd_test();
+
+	do_file("hello.py");
 }
 
 #if 0

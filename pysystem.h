@@ -16,6 +16,7 @@ extern "C" {
 void python_setup(void);
 int xpy_main(void);
 void run_python_cmd_str( const char * cmd );
+bool do_file(const char *filename);
 
 #ifdef __cplusplus
 }

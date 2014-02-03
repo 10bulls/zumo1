@@ -405,6 +405,8 @@ int readline(vstr_t *line, const char *prompt) {
     }
 }
 
+#if 0 // memzip implimentation...
+
 bool do_file(const char *filename) {
     mp_lexer_t *lex = mp_lexer_new_from_memzip_file(filename);
 
@@ -446,6 +448,159 @@ bool do_file(const char *filename) {
         return false;
     }
 }
+
+#endif
+
+///////////////// SD card ///////////////////////////
+
+#if 0
+typedef struct _mp_lexer_file_buf_t {
+    FIL fp;
+    char buf[20];
+    uint16_t len;
+    uint16_t pos;
+} mp_lexer_file_buf_t;
+
+static unichar file_buf_next_char(mp_lexer_file_buf_t *fb) {
+    if (fb->pos >= fb->len) {
+        if (fb->len < sizeof(fb->buf)) {
+            return MP_LEXER_CHAR_EOF;
+        } else {
+            UINT n;
+            f_read(&fb->fp, fb->buf, sizeof(fb->buf), &n);
+            if (n == 0) {
+                return MP_LEXER_CHAR_EOF;
+            }
+            fb->len = n;
+            fb->pos = 0;
+        }
+    }
+    return fb->buf[fb->pos++];
+}
+
+static void file_buf_close(mp_lexer_file_buf_t *fb) {
+    f_close(&fb->fp);
+    m_del_obj(mp_lexer_file_buf_t, fb);
+}
+
+mp_lexer_t *mp_lexer_new_from_file(const char *filename) {
+    mp_lexer_file_buf_t *fb = m_new_obj(mp_lexer_file_buf_t);
+    FRESULT res = f_open(&fb->fp, filename, FA_READ);
+    if (res != FR_OK) {
+        m_del_obj(mp_lexer_file_buf_t, fb);
+        return NULL;
+    }
+    UINT n;
+    f_read(&fb->fp, fb->buf, sizeof(fb->buf), &n);
+    fb->len = n;
+    fb->pos = 0;
+    return mp_lexer_new(qstr_from_str(filename), fb, (mp_lexer_stream_next_char_t)file_buf_next_char, (mp_lexer_stream_close_t)file_buf_close);
+}
+
+/******************************************************************************/
+// implementation of import
+
+#include "ff.h"
+
+mp_lexer_t *mp_import_open_file(qstr mod_name) {
+    vstr_t *vstr = vstr_new();
+    FRESULT res;
+
+    // look for module in src/
+    vstr_printf(vstr, "0:/src/%s.py", qstr_str(mod_name));
+    res = f_stat(vstr_str(vstr), NULL);
+    if (res == FR_OK) {
+        // found file
+        return mp_lexer_new_from_file(vstr_str(vstr)); // TODO does lexer need to copy the string? can we free it here?
+    }
+
+    // look for module in /
+    vstr_reset(vstr);
+    vstr_printf(vstr, "0:/%s.py", qstr_str(mod_name));
+    res = f_stat(vstr_str(vstr), NULL);
+    if (res == FR_OK) {
+        // found file
+        return mp_lexer_new_from_file(vstr_str(vstr)); // TODO does lexer need to copy the string? can we free it here?
+    }
+
+    // could not find file
+    vstr_free(vstr);
+    printf("import %s: could not find file in src/ or /\n", qstr_str(mod_name));
+
+    return NULL;
+}
+#endif
+
+int cpp_file_buf_next_char(void *fb);
+void cpp_file_buf_close(void *fb);
+void * cpp_lexer_new_from_file(const char *filename);
+int cpp_file_buf_next_char(void *vfb);
+
+mp_lexer_t *my_lexer_new_from_file(const char *filename) 
+{
+	void * fb = cpp_lexer_new_from_file(filename);
+#if 0
+    mp_lexer_file_buf_t *fb = m_new_obj(mp_lexer_file_buf_t);
+    FRESULT res = f_open(&fb->fp, filename, FA_READ);
+    if (res != FR_OK) {
+        m_del_obj(mp_lexer_file_buf_t, fb);
+        return NULL;
+    }
+    UINT n;
+    f_read(&fb->fp, fb->buf, sizeof(fb->buf), &n);
+    fb->len = n;
+    fb->pos = 0;
+    return mp_lexer_new(qstr_from_str(filename), fb, (mp_lexer_stream_next_char_t)file_buf_next_char, (mp_lexer_stream_close_t)file_buf_close);
+#endif
+	if (!fb) return NULL;
+	return mp_lexer_new(qstr_from_str(filename), fb, (mp_lexer_stream_next_char_t)cpp_file_buf_next_char, (mp_lexer_stream_close_t)cpp_file_buf_close);
+}
+
+
+bool do_file(const char *filename) {
+
+    mp_lexer_t *lex = my_lexer_new_from_file(filename);
+
+    if (lex == NULL) {
+        printf("could not open file '%s' for reading\n", filename);
+        return false;
+    }
+
+    qstr parse_exc_id;
+    const char *parse_exc_msg;
+    mp_parse_node_t pn = mp_parse(lex, MP_PARSE_FILE_INPUT, &parse_exc_id, &parse_exc_msg);
+    qstr source_name = mp_lexer_source_name(lex);
+
+    if (pn == MP_PARSE_NODE_NULL) {
+        // parse error
+        mp_lexer_show_error_pythonic_prefix(lex);
+        printf("%s: %s\n", qstr_str(parse_exc_id), parse_exc_msg);
+        mp_lexer_free(lex);
+        return false;
+    }
+
+    mp_lexer_free(lex);
+
+    mp_obj_t module_fun = mp_compile(pn, source_name, false);
+    mp_parse_node_free(pn);
+
+    if (module_fun == mp_const_none) {
+        return false;
+    }
+
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) {
+        rt_call_function_0(module_fun);
+        nlr_pop();
+        return true;
+    } else {
+        // uncaught exception
+        mp_obj_print_exception((mp_obj_t)nlr.ret_val);
+        return false;
+    }
+}
+
+////////////////////////////////////////////////////////////////////
 
 void run_python_cmd_str( const char * cmd )
 {
@@ -914,4 +1069,44 @@ int strncmp(const char *s1, const char *s2, size_t n) {
     else if (*s2) return -1;
     else if (*s1) return 1;
     else return 0;
+}
+
+// hacked from...
+// C:\devt\arduino\ARM-Toolchain\sources\newlib-2012.09\newlib\libc\string
+char *
+_DEFUN (strncpy, (dst0, src0),
+	char *dst0 _AND
+	_CONST char *src0 _AND
+	size_t count)
+{
+  char *dscan;
+  _CONST char *sscan;
+
+  dscan = dst0;
+  sscan = src0;
+  while (count > 0)
+    {
+      --count;
+      if ((*dscan++ = *sscan++) == '\0')
+	break;
+    }
+  while (count-- > 0)
+    *dscan++ = '\0';
+
+  return dst0;
+}
+
+char *
+_DEFUN (strchr, (s1, i),
+	_CONST char *s1 _AND
+	int i)
+{
+  _CONST unsigned char *s = (_CONST unsigned char *)s1;
+  unsigned char c = i;
+
+  while (*s && *s != c)
+    s++;
+  if (*s == c)
+    return (char *)s;
+  return NULL;
 }
