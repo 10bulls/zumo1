@@ -606,6 +606,7 @@ public:
   // float alpha = 5.0;
 };
 
+
 #define MAX_SPEED  SPEED_MED
 
 class ActionLineDetect : public RobotAction

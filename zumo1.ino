@@ -1,30 +1,5 @@
 #include <mpython.h>
 
-/*
-extern "C" {
-#include "nlr.h"
-#include "misc.h"
-#include "mpconfig.h"
-#include "mpqstr.h"
-#include "obj.h"
-#include "lexer.h"
-#include "lexermemzip.h"
-#include "parse.h"
-#include "compile.h"
-#include "runtime0.h"
-#include "runtime.h"
-#include "repl.h"
-// teensy
-#include "servo.h"
-#include "usb.h"
-#include "led.h"
-// py
-#include "gc.h"
-
-int xpy_main(void);
-}
-*/
-
 #include "pysystem.h"
 
 #include <Wire.h>
@@ -311,10 +286,6 @@ void setup()
 	read_reflectance_from_eeprom();
 	read_gyro_zero_from_eeprom();
 
-
-	// xpy_main();
-	// python_setup();
-
 	action_scan_rove.pnext_action = &action_forward_rove;
 	action_forward_rove.pnext_action = &action_scan_rove;
 
@@ -326,7 +297,6 @@ void setup()
 
 	robot.setAction(&action_rest);
 	
-  
 	// Serial.println("Hello minion!");
 /*
 	tone(BUZZER_PIN,1000);
@@ -373,9 +343,8 @@ void loop()
   static boolean state = 1;
   static unsigned long tprev = millis();
   int d = 0;
-  
-  IRMenu();
 
+  IRMenu();
   if (CheckSerial( &Serial )) return;
   if (CheckSerial( &Serial3 )) return;
 
@@ -466,7 +435,7 @@ boolean CheckSerial( Stream * s )
       s->print("\r\n");
       parse_serial_buffer();
     }
-    else if (ch != 10)
+	else if (ch != 10)
     {
       if (iserial_buffer > sizeof(serial_buffer)-1)
       {
@@ -519,6 +488,7 @@ void StartIMU()
 void StopIMU()
 {
   if (!imu_timer_running) return;
+	
   imu_timer.end();
   imu.stop();
   
@@ -763,7 +733,6 @@ void parse_serial_buffer()
     
 	Serial.println((unsigned long)pycmdbuff, HEX);
 
-
 	if (serial_buffer_len > 0 && serial_buffer[serial_buffer_start]=='>')
 	{
 //		int ipy=0;
@@ -775,9 +744,9 @@ void parse_serial_buffer()
 		serial_buffer_len = 0;
 		return;
 
-
 		// pycmdbuff[0] = 0;
 
+// NOT USING THIS.....
 #if 0
 
 		while(serial_buffer_len > 0 && ipy < (sizeof(pycmdbuff)-1))
@@ -801,7 +770,8 @@ void parse_serial_buffer()
 		run_python_cmd_str(&pycmdbuff[1]);	// ignore the 1st character
 		return;
 #endif
-	}
+}
+
 
   while(serial_buffer_len > 0)
   {
@@ -907,7 +877,8 @@ void parse_serial_buffer()
       }
       continue;
     }
-    
+
+
     switch(ch)
     {
       case 'a': // autonomous
@@ -917,7 +888,7 @@ void parse_serial_buffer()
       case 'b': // backwards
         robot.setAction( &action_reverse_med );
         break;
-        
+       
       case 'c':  // compass callibrate
         StopIMU();
         //compass.m_min = imu.mmin;
@@ -930,7 +901,7 @@ void parse_serial_buffer()
 		*/
 		compass_calibrate(true);
         break;
-        
+
       case 'P':
       case 'I':
       case 'D':
@@ -1028,7 +999,6 @@ void parse_serial_buffer()
 		write_compass_config_to_eeprom();
         robot.sout->println("done.");
         break;
-
 
 /*        
      case 'z':
@@ -1236,7 +1206,7 @@ void compass_calibrate(boolean auto_rotate)
 	dump_compass_config();
 }
 
-int read_compass_config_from_eeprom()
+void read_compass_config_from_eeprom()
 {
 	int a = EEPROM_COMPASS;
 	eeprom_read_block((void*)&compass.m_min, (const void*)a, sizeof(LSM303::vector<int16_t>));

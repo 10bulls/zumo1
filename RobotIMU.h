@@ -1,7 +1,7 @@
 #ifndef RobotIMU_h_defined
 #define RobotIMU_h_defined
 
-#define IMU_BUFF_SIZE  400
+#define IMU_BUFF_SIZE  100
 
 class RobotIMU
 {
