@@ -182,6 +182,16 @@ RobotAction * QuickActions []
     
 };
 
+extern "C"
+{
+void * set_stdout_callback(void (*fn)(void *, const char *, unsigned int ));
+
+void stdout_print_strn_robot(void *data, const char *str, unsigned int len) 
+{
+	robot.sout->write(str,len);
+}
+}
+
 #define NUM_QUICK_ACTIONS  sizeof(QuickActions)/sizeof(QuickActions[0])
 int quick_action = 0;
 
@@ -210,25 +220,6 @@ void Robot::setAction( RobotAction * action )
 		//    tlast = tnow;
 		paction->dump();
 		paction->start();
-	}
-}
-
-void sd_test()
-{
-	Serial.println("SD DIR...");
-	File root = SD.open("/");
-	if (!root || !root.isDirectory())
-    {
-		Serial.println("Error reading SD");
-		return;
-    }
-
-	for(;;)
-	{
-		File f = root.openNextFile();
-		if (!f) break;
-		Serial.println(f.name());
-		f.close();
 	}
 }
 
@@ -347,21 +338,12 @@ void setup()
   
 	// imu.log_max = true;
 
-	delay(1000);
-	Serial.println("Testing python...");
+//	run_python_cmd_str("print(\"python says hi!\")");
 
-	// run_python_cmd_str("print(\"python says hi!\")");
+	do_file("boot.py");
 
-//	led_init();
-//    led_state(PYB_LED_BUILTIN, 1);
-	// xpy_main();
-//	python_setup();
-
-	run_python_cmd_str("print(\"python says hi!\")");
-
-	sd_test();
-
-	do_file("hello.py");
+	// OK, now let robot decide where stdout goes
+	set_stdout_callback(stdout_print_strn_robot);
 }
 
 #if 0
@@ -774,8 +756,6 @@ void parse_serial_buffer()
     int ch;
     int nibble;
     
-	Serial.println((unsigned long)pycmdbuff, HEX);
-
 	if (serial_buffer_len > 0 && serial_buffer[serial_buffer_start]=='>')
 	{
 //		int ipy=0;

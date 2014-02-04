@@ -93,6 +93,7 @@
   <ItemGroup>
     <ClCompile Include="irstuff.cpp" />
     <ClCompile Include="pysystem.c" />
+    <ClCompile Include="sdfileio.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

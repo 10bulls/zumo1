@@ -38,6 +38,9 @@
 //void gc_collect(void) {
 //}
 
+void stdout_print_strn_serial(void *data, const char *str, unsigned int len);
+void stdout_print_strn_serial3(void *data, const char *str, unsigned int len); 
+
 bool do_file(const char *filename);
 
 void flash_error(int n) {
@@ -296,12 +299,64 @@ mp_obj_t pyb_led(mp_obj_t state) {
 }
 
 mp_obj_t pyb_run(mp_obj_t filename_obj) {
+	
     // const char *filename = qstr_str(mp_obj_get_qstr(filename_obj));
 	if (MP_OBJ_IS_STR(filename_obj)) {
-		const char *filename = filename_obj;
+		const char *filename = mp_obj_str_get_str(filename_obj);
+		// const char *filename = filename_obj;
 		do_file(filename);
 	}
     return mp_const_none;
+}
+
+mp_obj_t pyb_dir(uint n_args, const mp_obj_t *args)
+{
+	if (n_args==0)
+	{
+		// dir current folder
+		sd_dir(NULL);
+	}
+	else
+	{
+		if (MP_OBJ_IS_STR(args[0])) 
+		{
+			const char *path = mp_obj_str_get_str(args[0]);
+			sd_dir(path);
+		}
+	}
+    return mp_const_none;
+}
+
+/*
+void stdout_print_strn_serial(void *data, const char *str, unsigned int len) 
+{
+	Serial.write(str,len);
+}
+void stdout_print_strn_serial3(void *data, const char *str, unsigned int len) 
+{
+	Serial3.write((const uint8_t *)str,len);
+}
+*/
+
+void * set_stdout_callback(void (*fn)(void *, const char *, unsigned int ));
+
+mp_obj_t pyb_test_stdout( void )
+{
+	printf("Starting stdout test\n");
+
+	void * old_f = set_stdout_callback(stdout_print_strn_serial);
+	
+	printf("TESTING SERIAL\n");
+
+	set_stdout_callback(stdout_print_strn_serial3);
+
+	printf("TESTING BLUETOOTH\n");
+
+	set_stdout_callback(old_f);
+
+	printf("TESTING ORIGINAL\n");
+
+	return mp_const_none;
 }
 
 /*
@@ -654,7 +709,8 @@ void run_python_cmd_str( const char * cmd )
             }
         }
     }
-	stdout_tx_str("\r\n");
+	// stdout_tx_str("\r\n");
+	printf("\r");
 }
 
 void do_repl(void) {
@@ -745,7 +801,6 @@ void python_setup(void)
 	qstr_init();
 	rt_init();
 
-#if 1
     // add some functions to the python namespace
     {
         rt_store_name(QSTR_FROM_STR_STATIC("help"), rt_make_function_n(0,pyb_help));
@@ -761,132 +816,11 @@ void python_setup(void)
         rt_store_attr(m, QSTR_FROM_STR_STATIC("gpio"), (mp_obj_t)&pyb_gpio_obj);
         rt_store_name(QSTR_FROM_STR_STATIC("pyb"), m);
         rt_store_name(QSTR_FROM_STR_STATIC("run"), rt_make_function_n(1,pyb_run));
+		rt_store_name(QSTR_FROM_STR_STATIC("dir"), rt_make_function_var(0,pyb_dir));
+		rt_store_name(QSTR_FROM_STR_STATIC("ttt"), rt_make_function_n(0,pyb_test_stdout));
     }
-#endif
 }
 
-int xpy_main(void) {
-
-    pinMode(LED_BUILTIN, OUTPUT);
-
-	/*
-	for(;;)
-	{
-		digitalWrite(LED_BUILTIN,1);
-		delay(1000);
-		digitalWrite(LED_BUILTIN,0);
-		delay(1000);
-	}
-	*/
-
-#if 0
-    // Wait for host side to get connected
-    while (!usb_vcp_is_connected()) {
-        ;
-    }
-#else
-    delay(1000);
-#endif
-
-    led_init();
-    led_state(PYB_LED_BUILTIN, 1);
-
-//    int first_soft_reset = true;
-
-soft_reset:
-
-    // GC init
-    gc_init(&_heap_start, (void*)HEAP_END);
-
-    qstr_init();
-    rt_init();
-
-#if 0
-    // add some functions to the python namespace
-    {
-        rt_store_name(qstr_from_str_static("help"), rt_make_function_n(0, pyb_help));
-        mp_obj_t m = mp_obj_new_module(qstr_from_str_static("pyb"));
-        rt_store_attr(m, qstr_from_str_static("info"), rt_make_function_n(0, pyb_info));
-        rt_store_attr(m, qstr_from_str_static("source_dir"), rt_make_function_n(1, pyb_source_dir));
-        rt_store_attr(m, qstr_from_str_static("main"), rt_make_function_n(1, pyb_main));
-        rt_store_attr(m, qstr_from_str_static("gc"), rt_make_function_n(0, pyb_gc));
-        rt_store_attr(m, qstr_from_str_static("delay"), rt_make_function_n(1, pyb_delay));
-        rt_store_attr(m, qstr_from_str_static("led"), rt_make_function_n(1, pyb_led));
-        rt_store_attr(m, qstr_from_str_static("Led"), rt_make_function_n(1, pyb_Led));
-        rt_store_attr(m, qstr_from_str_static("analogRead"), rt_make_function_n(1, pyb_analog_read));
-        rt_store_attr(m, qstr_from_str_static("analogWrite"), rt_make_function_n(2, pyb_analog_write));
-        rt_store_attr(m, qstr_from_str_static("analogWriteResolution"), rt_make_function_n(1, pyb_analog_write_resolution));
-        rt_store_attr(m, qstr_from_str_static("analogWriteFrequency"), rt_make_function_n(2, pyb_analog_write_frequency));
-
-        rt_store_attr(m, qstr_from_str_static("gpio"), (mp_obj_t)&pyb_gpio_obj);
-        rt_store_attr(m, qstr_from_str_static("Servo"), rt_make_function_n(0, pyb_Servo));
-        rt_store_name(qstr_from_str_static("pyb"), m);
-        rt_store_name(qstr_from_str_static("run"), rt_make_function_n(1, pyb_run));
-    }
-#endif
-
-#if 1
-    // add some functions to the python namespace
-    {
-        rt_store_name(QSTR_FROM_STR_STATIC("help"), rt_make_function_n(0,pyb_help));
-        mp_obj_t m = mp_obj_new_module(QSTR_FROM_STR_STATIC("pyb"));
-        rt_store_attr(m, QSTR_FROM_STR_STATIC("info"), rt_make_function_n(0,pyb_info));
-        rt_store_attr(m, QSTR_FROM_STR_STATIC("source_dir"), rt_make_function_n(1,pyb_source_dir));
-        rt_store_attr(m, QSTR_FROM_STR_STATIC("main"), rt_make_function_n(1,pyb_main));
-//        rt_store_attr(m, QSTR_FROM_STR_STATIC("gc"), rt_make_function_n(0,pyb_gc));
-		rt_store_attr(m, MP_QSTR_gc, (mp_obj_t)&pyb_gc_obj);
-        rt_store_attr(m, QSTR_FROM_STR_STATIC("delay"), rt_make_function_n(1,pyb_delay));
-        rt_store_attr(m, QSTR_FROM_STR_STATIC("led"), rt_make_function_n(1,pyb_led));
-        rt_store_attr(m, QSTR_FROM_STR_STATIC("Led"), rt_make_function_n(1,pyb_Led));
-        rt_store_attr(m, QSTR_FROM_STR_STATIC("gpio"), (mp_obj_t)&pyb_gpio_obj);
-        rt_store_name(QSTR_FROM_STR_STATIC("pyb"), m);
-        rt_store_name(QSTR_FROM_STR_STATIC("run"), rt_make_function_n(1,pyb_run));
-    }
-#endif
-
-
-    printf("About execute /boot.py\n");
-    if (!do_file("/boot.py")) {
-        printf("Unable to open '/boot.py'\n");
-        flash_error(4);
-    }
-    printf("Done executing /boot.py\n");
-
-    // Turn bootup LED off
-    led_state(PYB_LED_BUILTIN, 0);
-
-    // run main script
-    {
-        vstr_t *vstr = vstr_new();
-        vstr_add_str(vstr, "/");
-        if (pyb_config_source_dir == 0) {
-            vstr_add_str(vstr, "src");
-        } else {
-            vstr_add_str(vstr, qstr_str(pyb_config_source_dir));
-        }
-        vstr_add_char(vstr, '/');
-        if (pyb_config_main == 0) {
-            vstr_add_str(vstr, "main.py");
-        } else {
-            vstr_add_str(vstr, qstr_str(pyb_config_main));
-        }
-        printf("About execute '%s'\n", vstr_str(vstr));
-        if (!do_file(vstr_str(vstr))) {
-            printf("Unable to open '%s'\n", vstr_str(vstr));
-            flash_error(3);
-        }
-        printf("Done executing '%s'\n", vstr_str(vstr));
-        vstr_free(vstr);
-    }
-
-    do_repl();
-
-    printf("PYB: soft reboot\n");
-
-//    first_soft_reset = false;
-    goto soft_reset;
-	return 0;
-}
 
 /*
 double sqrt(double x) {
