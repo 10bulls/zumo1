@@ -190,11 +190,16 @@ int quick_action = 0;
 
 //unsigned long tlast = millis();
 
-// protypes from compass.cpp
+// prototypes from compass.cpp
 void dump_compass_config(LSM303 * compass, Stream * sout);
 void compass_calibrate(Robot * bot, LSM303 * compass, RobotIMU * imu, boolean auto_rotate);
 void read_compass_config_from_eeprom(LSM303 * compass, int a);
 void write_compass_config_to_eeprom(LSM303 * compass, int a);
+// prototypes from reflectance.cpp
+void dump_reflectance_calibration(ZumoReflectanceSensorArray * sensor, int num_sensors, Stream * sout);
+void calibrate_reflectance_array(ZumoReflectanceSensorArray * sensor, int num_sensors, Stream * sout);
+void save_reflectance_to_eeprom(ZumoReflectanceSensorArray * sensor, int num_sensors, int address);
+void read_reflectance_from_eeprom(ZumoReflectanceSensorArray * sensor, int num_sensors, int address);
 
 void Robot::setAction( RobotAction * action )
 {
@@ -314,7 +319,7 @@ void setup()
 	reflectanceSensors.init(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
 	
 	// Read calibration and config settings from EEPROM
-	read_reflectance_from_eeprom();
+	read_reflectance_from_eeprom(&reflectanceSensors,NUM_SENSORS,EEPROM_REFLECT);
 	read_gyro_zero_from_eeprom();
 
 	action_scan_rove.pnext_action = &action_forward_rove;
@@ -1025,7 +1030,7 @@ void parse_serial_buffer()
 
       case 'w': // write calibration date to eeprom;
         robot.sout->println("Saving reflectance data...");
-        save_reflectance_to_eeprom();
+        save_reflectance_to_eeprom(&reflectanceSensors,NUM_SENSORS,EEPROM_REFLECT);
         robot.sout->println("Saving gyro data...");
         write_gyro_zero_to_eeprom();
 		robot.sout->println("Saving compass data...");
@@ -1061,7 +1066,7 @@ void parse_serial_buffer()
         robot.sout->print("A3=");
         robot.sout->println(analogRead(A3));
 
-        dump_reflectance_calibration();
+        dump_reflectance_calibration(&reflectanceSensors,NUM_SENSORS,robot.sout);
         dump_gzero();
 		dump_compass_config(&compass,robot.sout);
 
@@ -1123,81 +1128,5 @@ void parse_serial_buffer()
   
   serial_buffer_start = 0;
   iserial_buffer = 0;
-}
-
-void calibrate_reflectance_array()
-{
-  robot.sout->println("Calibrating array...");
-  
-  reflectanceSensors.resetCalibration();
-  
-  unsigned long startTime = millis();
-  while(millis() - startTime < 10000)   // make the calibration take 10 seconds
-  {
-    reflectanceSensors.calibrate();
-  }
-  robot.sout->println("done");
-  
-  dump_reflectance_calibration();
-  
-//  save_reflectance_to_eeprom(0);
-}
-
-void dump_reflectance_calibration()
-{
-  // print the calibration minimum values measured when emitters were on
-  robot.sout->print("min: ");
-  for (byte i = 0; i < NUM_SENSORS; i++)
-  {
-    robot.sout->print(reflectanceSensors.calibratedMinimumOn[i]);
-    robot.sout->print(' ');
-  }
-  robot.sout->println();
-  
-  // print the calibration maximum values measured when emitters were on
-  robot.sout->print("max: ");
-  for (byte i = 0; i < NUM_SENSORS; i++)
-  {
-    robot.sout->print(reflectanceSensors.calibratedMaximumOn[i]);
-    robot.sout->print(' ');
-  }
-  robot.sout->println();
-}
-
-void save_reflectance_to_eeprom()
-{
-  int address = EEPROM_REFLECT;
-  
-  int n = NUM_SENSORS * sizeof(unsigned int);
-  
-  eeprom_write_block((const void*)reflectanceSensors.calibratedMinimumOn, (void*)address, n);
-  eeprom_write_block((const void*)reflectanceSensors.calibratedMaximumOn, (void*)(address+n), n);
-}
-
-int read_reflectance_from_eeprom()
-{
-  int address = EEPROM_REFLECT;
-  
-  int n = NUM_SENSORS * sizeof(unsigned int);
-  
-// WARNING!
-//TODO! Using gc_alloc for now to see if will stop crash, but does not also use gc_free
-
-  if (!reflectanceSensors.calibratedMinimumOn)
-    reflectanceSensors.calibratedMinimumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
-    // reflectanceSensors.calibratedMinimumOn = (unsigned int*)gc_alloc(sizeof(unsigned int)*NUM_SENSORS);
-//    reflectanceSensors.calibratedMinimumOn = (unsigned int*)new int [NUM_SENSORS];
-
-  if (!reflectanceSensors.calibratedMaximumOn)
-    reflectanceSensors.calibratedMaximumOn = (unsigned int*)malloc(sizeof(unsigned int)*NUM_SENSORS);
-    // reflectanceSensors.calibratedMaximumOn = (unsigned int*)gc_alloc(sizeof(unsigned int)*NUM_SENSORS);
-//	reflectanceSensors.calibratedMaximumOn = (unsigned int*)new int [NUM_SENSORS];
-  
-  eeprom_read_block((void*)reflectanceSensors.calibratedMinimumOn, (const void*)address, n);
-  eeprom_read_block((void*)reflectanceSensors.calibratedMaximumOn, (const void*)(address+n), n);
-
-  dump_reflectance_calibration();
-  
-  return n;
 }
 
