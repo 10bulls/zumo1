@@ -200,6 +200,11 @@ void dump_reflectance_calibration(ZumoReflectanceSensorArray * sensor, int num_s
 void calibrate_reflectance_array(ZumoReflectanceSensorArray * sensor, int num_sensors, Stream * sout);
 void save_reflectance_to_eeprom(ZumoReflectanceSensorArray * sensor, int num_sensors, int address);
 void read_reflectance_from_eeprom(ZumoReflectanceSensorArray * sensor, int num_sensors, int address);
+// 
+void dump_gzero(RobotIMU * imu, Stream * sout);
+void calibrate_gyro(RobotIMU * imu, Stream * sout);
+void write_gyro_zero_to_eeprom(RobotIMU * imu, int a);
+void read_gyro_zero_from_eeprom(RobotIMU * imu, int a);
 
 void Robot::setAction( RobotAction * action )
 {
@@ -320,7 +325,7 @@ void setup()
 	
 	// Read calibration and config settings from EEPROM
 	read_reflectance_from_eeprom(&reflectanceSensors,NUM_SENSORS,EEPROM_REFLECT);
-	read_gyro_zero_from_eeprom();
+	read_gyro_zero_from_eeprom(&imu,EEPROM_GYRO);
 
 	action_scan_rove.pnext_action = &action_forward_rove;
 	action_forward_rove.pnext_action = &action_scan_rove;
@@ -351,7 +356,7 @@ void setup()
 	// OK, now let robot decide where stdout goes
 	set_stdout_callback(stdout_print_strn_robot);
 
-	Serial.println("HERE\n");
+
 }
 
 #if 0
@@ -558,49 +563,6 @@ void UpdateIMU()
   // update display every 10 reads
 //  dump_imu = ((imu.buff_index % 10) == 0);
 
-}
-
-void calibrate_gyro( void )
-{
-  robot.sout->println("Starting gyro calibrate...");
-
-  StartIMU();
-  
-  while( !imu.buffer_overflow )
-  {
-    delay(100);    
-  }
-  
-  StopIMU();
-  
-  imu.gzero = imu.get_g_avg();
-  
-  dump_gzero();
-  
-  // write_gyro_zero_to_eeprom();
-}
-
-void dump_gzero()
-{
-  robot.sout->print("Gyro zero(x,y,z) = ");
-  robot.sout->print(imu.gzero.x);
-  robot.sout->print(",");
-  robot.sout->print(imu.gzero.y);
-  robot.sout->print(",");
-  robot.sout->println(imu.gzero.z);
-
-}
-
-void write_gyro_zero_to_eeprom()
-{
-  int a = EEPROM_GYRO;
-  eeprom_write_block((const void*)&imu.gzero, (void*)a, sizeof(imu.gzero));
-}
-
-void read_gyro_zero_from_eeprom()
-{
-  int a = EEPROM_GYRO;
-  eeprom_read_block((void*)&imu.gzero, (const void*)a, sizeof(imu.gzero));
 }
 
 
@@ -1032,7 +994,7 @@ void parse_serial_buffer()
         robot.sout->println("Saving reflectance data...");
         save_reflectance_to_eeprom(&reflectanceSensors,NUM_SENSORS,EEPROM_REFLECT);
         robot.sout->println("Saving gyro data...");
-        write_gyro_zero_to_eeprom();
+        write_gyro_zero_to_eeprom(&imu,EEPROM_GYRO);
 		robot.sout->println("Saving compass data...");
 		write_compass_config_to_eeprom(&compass,EEPROM_COMPASS);
         robot.sout->println("done.");
@@ -1067,7 +1029,7 @@ void parse_serial_buffer()
         robot.sout->println(analogRead(A3));
 
         dump_reflectance_calibration(&reflectanceSensors,NUM_SENSORS,robot.sout);
-        dump_gzero();
+        dump_gzero(&imu,robot.sout);
 		dump_compass_config(&compass,robot.sout);
 
 /*        
