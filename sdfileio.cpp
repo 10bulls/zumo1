@@ -25,6 +25,52 @@ void sd_dir(File dir)
 	}
 }
 
+void sd_type(File f)
+{
+	char buff[10];
+
+	uint32_t s = f.size();
+	uint32_t l=0;
+
+	// NOTE: reading exact number of bytes otherwise there is a delay when reading
+	// greater than file size
+	for(;s;)
+	{
+		l = min(s,sizeof(buff)-1);
+		int n = f.readBytes(buff,l);
+		if (!n) break;
+		s -= n;
+		buff[n] = '\0';
+		printf(buff);
+	}
+	printf("\n");
+}
+
+void sd_hex_dump(File f)
+{
+	char buff[10];
+	int cc = 0;
+	uint32_t s = f.size();
+	uint32_t l=0;
+
+	for(;s;)
+	{
+		l = min(s,sizeof(buff)-1);
+		int n = f.readBytes(buff,l);
+		if (!n) break;
+		s -= n;
+		for(int j=0; j<n; j++)
+		{
+			cc++;
+			if ((cc % 16)==0) printf("\n%04x: ", cc);
+			printf("%02x ",(int)buff[j]);
+		}
+	}
+	printf("\n");
+}
+
+
+
 extern "C" {
 
 void stdout_print_strn_serial(void *data, const char *str, unsigned int len) 
@@ -70,6 +116,53 @@ void sd_dir(const char * path)
 	sd_dir(_cwd);
 }
 
+void sd_type(const char * path)
+{
+	if (path)
+	{
+		File f = SD.open(path);
+		if (!f)
+		{
+			printf("%s not found!\n", path);
+			return;
+		}
+		if (f.isDirectory())
+		{
+			printf("%s is a directory!\n", path);
+		}
+		else
+		{
+			sd_type(f);
+		}
+		f.close();
+	}
+}
+
+void sd_hex_dump(const char * path)
+{
+	if (path)
+	{
+		File f = SD.open(path);
+		if (!f)
+		{
+			printf("%s not found!\n", path);
+			return;
+		}
+		if (f.isDirectory())
+		{
+			printf("%s is a directory!\n", path);
+		}
+		else
+		{
+			sd_hex_dump(f);
+		}
+		f.close();
+	}
+}
+
+
+File _sd_f;
+
 struct mymp_lexer_file_buf
 {
 	File * fp;
@@ -80,8 +173,11 @@ struct mymp_lexer_file_buf
 
 void cpp_file_buf_close(void *fb) 
 {
+//!	printf("buf_close\n");
+	_sd_f.close();
 	((mymp_lexer_file_buf*)fb)->fp->close();
 	free(fb);
+//!	printf("OK\n");
 	//f_close(&fb->fp);
 	//m_del_obj(mp_lexer_file_buf_t, fb);
 }
@@ -111,8 +207,6 @@ int cpp_file_buf_next_char(void *vfb)
 	}
 	return fb->buf[fb->pos++];
 }
-
-File _sd_f;
 
 void * cpp_lexer_new_from_file(const char *filename) 
 {

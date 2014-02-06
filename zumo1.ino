@@ -12,6 +12,10 @@
 // #include <EEPROM.h>
 #include <avr/EEPROM.h>
 
+#include <XModem.h>
+#include "zmodem.h"
+extern Stream * _xmodem_s;
+
 #include <SPI.h>
 #include <SD.h>
 #define SD_CS	10
@@ -258,13 +262,15 @@ void setup()
 	pinMode( LED_PIN, OUTPUT );
 
 	int sdcard_ok = true;
-	Serial.println("Initializing SD card...");
+	Serial.print("Initializing SD card...");
 	if (!SD.begin(SD_CS)) 
 	{
 		Serial.println("failed!");
 		sdcard_ok = false;
 		// return;
 	}
+	else
+		Serial.println("OK");
 
   
 	robot.setup();
@@ -340,10 +346,12 @@ void setup()
 
 //	run_python_cmd_str("print(\"python says hi!\")");
 
-	do_file("boot.py");
+//	do_file("boot.py");
 
 	// OK, now let robot decide where stdout goes
 	set_stdout_callback(stdout_print_strn_robot);
+
+	Serial.println("HERE\n");
 }
 
 #if 0
@@ -445,6 +453,7 @@ boolean CheckSerial( Stream * s )
   {
     // use this stream for output
     robot.sout = s;
+	_xmodem_s = s;
     
     int ch = s->read();
 
@@ -762,6 +771,12 @@ void parse_serial_buffer()
 
 		serial_buffer[serial_buffer_len] = 0;
 		run_python_cmd_str(&serial_buffer[serial_buffer_start+1]);	// ignore the 1st character
+
+		// Fixes gpio(13,) SCK killing SD
+		SPI.begin();
+		//
+		robot.sout->flush();
+
 		iserial_buffer = 0;
 		serial_buffer_start = 0;
 		serial_buffer_len = 0;

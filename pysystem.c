@@ -327,6 +327,49 @@ mp_obj_t pyb_dir(uint n_args, const mp_obj_t *args)
     return mp_const_none;
 }
 
+mp_obj_t pyb_receive(mp_obj_t filename_obj) 
+{
+	if (MP_OBJ_IS_STR(filename_obj)) 
+	{
+		const char *filename = mp_obj_str_get_str(filename_obj);
+		xmode_receive(filename);
+	}
+    return mp_const_none;
+}
+
+mp_obj_t pyb_transmit(mp_obj_t filename_obj) 
+{
+	if (MP_OBJ_IS_STR(filename_obj)) 
+	{
+		const char *filename = mp_obj_str_get_str(filename_obj);
+		xmodem_send(filename);
+	}
+    return mp_const_none;
+}
+
+
+
+mp_obj_t pyb_type(mp_obj_t filename_obj) 
+{
+	if (MP_OBJ_IS_STR(filename_obj)) 
+	{
+		const char *filename = mp_obj_str_get_str(filename_obj);
+		sd_type(filename);
+	}
+    return mp_const_none;
+}
+
+mp_obj_t pyb_hex_dump(mp_obj_t filename_obj) 
+{
+	if (MP_OBJ_IS_STR(filename_obj)) 
+	{
+		const char *filename = mp_obj_str_get_str(filename_obj);
+		sd_hex_dump(filename);
+	}
+    return mp_const_none;
+}
+
+
 /*
 void stdout_print_strn_serial(void *data, const char *str, unsigned int len) 
 {
@@ -810,14 +853,20 @@ void python_setup(void)
         rt_store_attr(m, QSTR_FROM_STR_STATIC("main"), rt_make_function_n(1,pyb_main));
 //        rt_store_attr(m, QSTR_FROM_STR_STATIC("gc"), rt_make_function_n(0,pyb_gc));
 		rt_store_attr(m, MP_QSTR_gc, (mp_obj_t)&pyb_gc_obj);
-        rt_store_attr(m, QSTR_FROM_STR_STATIC("delay"), rt_make_function_n(1,pyb_delay));
+//        rt_store_attr(m, QSTR_FROM_STR_STATIC("delay"), rt_make_function_n(1,pyb_delay));
+//		rt_store_attr(m, MP_QSTR_delay, rt_make_function_n(1,pyb_delay));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("led"), rt_make_function_n(1,pyb_led));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("Led"), rt_make_function_n(1,pyb_Led));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("gpio"), (mp_obj_t)&pyb_gpio_obj);
         rt_store_name(QSTR_FROM_STR_STATIC("pyb"), m);
         rt_store_name(QSTR_FROM_STR_STATIC("run"), rt_make_function_n(1,pyb_run));
 		rt_store_name(QSTR_FROM_STR_STATIC("dir"), rt_make_function_var(0,pyb_dir));
-		rt_store_name(QSTR_FROM_STR_STATIC("ttt"), rt_make_function_n(0,pyb_test_stdout));
+		// rt_store_name(QSTR_FROM_STR_STATIC("ttt"), rt_make_function_n(0,pyb_test_stdout));
+		rt_store_name(QSTR_FROM_STR_STATIC("rcv"), rt_make_function_n(1,pyb_receive));
+		rt_store_name(QSTR_FROM_STR_STATIC("send"), rt_make_function_n(1,pyb_transmit));
+		rt_store_name(QSTR_FROM_STR_STATIC("type"), rt_make_function_n(1,pyb_type));
+		rt_store_name(QSTR_FROM_STR_STATIC("hex"), rt_make_function_n(1,pyb_hex_dump));
+		rt_store_name(MP_QSTR_delay, rt_make_function_n(1,pyb_delay));
     }
 }
 

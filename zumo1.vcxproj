@@ -41,7 +41,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>C:\devt\arduino\arduino-1.0.5\hardware\teensy\cores\teensy3;C:\devt\arduino\arduino-1.0.5\hardware\teensy\cores\teensy3\utils;C:\devt\arduino\arduino-1.0.5\hardware\teensy\cores\teensy3\avr;C:\devt\arduino\arduino-1.0.5\libraries\mpython;C:\devt\arduino\arduino-1.0.5\libraries\mpython\utility;C:\devt\arduino\arduino-1.0.5\libraries\Wire;C:\devt\arduino\arduino-1.0.5\libraries\Wire\utility;C:\devt\arduino\arduino-1.0.5\libraries\LSM303;C:\devt\arduino\arduino-1.0.5\libraries\LSM303\utility;C:\devt\arduino\arduino-1.0.5\libraries\L3G;C:\devt\arduino\arduino-1.0.5\libraries\L3G\utility;C:\devt\arduino\arduino-1.0.5\libraries\QTRSensors;C:\devt\arduino\arduino-1.0.5\libraries\QTRSensors\utility;C:\devt\arduino\arduino-1.0.5\libraries\ZumoReflectanceSensorArray;C:\devt\arduino\arduino-1.0.5\libraries\ZumoReflectanceSensorArray\utility;C:\devt\arduino\arduino-1.0.5\libraries\SPI;C:\devt\arduino\arduino-1.0.5\libraries\SPI\utility;C:\devt\arduino\arduino-1.0.5\libraries\SD;C:\devt\arduino\arduino-1.0.5\libraries\SD\utility;C:\devt\arduino\arduino-1.0.5\libraries\IRremote;C:\devt\arduino\arduino-1.0.5\libraries\IRremote\utility;C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\arm-none-eabi\include;C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\arm-none-eabi\include;C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\lib\gcc\arm-none-eabi\4.7.2\include;C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\lib\gcc\arm-none-eabi\4.7.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\devt\arduino\arduino-1.0.5\hardware\teensy\cores\teensy3;C:\devt\arduino\arduino-1.0.5\hardware\teensy\cores\teensy3\utils;C:\devt\arduino\arduino-1.0.5\hardware\teensy\cores\teensy3\avr;C:\devt\arduino\arduino-1.0.5\libraries\mpython;C:\devt\arduino\arduino-1.0.5\libraries\mpython\utility;C:\devt\arduino\arduino-1.0.5\libraries\Wire;C:\devt\arduino\arduino-1.0.5\libraries\Wire\utility;C:\devt\arduino\arduino-1.0.5\libraries\LSM303;C:\devt\arduino\arduino-1.0.5\libraries\LSM303\utility;C:\devt\arduino\arduino-1.0.5\libraries\L3G;C:\devt\arduino\arduino-1.0.5\libraries\L3G\utility;C:\devt\arduino\arduino-1.0.5\libraries\QTRSensors;C:\devt\arduino\arduino-1.0.5\libraries\QTRSensors\utility;C:\devt\arduino\arduino-1.0.5\libraries\ZumoReflectanceSensorArray;C:\devt\arduino\arduino-1.0.5\libraries\ZumoReflectanceSensorArray\utility;C:\devt\arduino\arduino-1.0.5\libraries\XModem;C:\devt\arduino\arduino-1.0.5\libraries\XModem\utility;C:\devt\arduino\arduino-1.0.5\libraries\SPI;C:\devt\arduino\arduino-1.0.5\libraries\SPI\utility;C:\devt\arduino\arduino-1.0.5\libraries\SD;C:\devt\arduino\arduino-1.0.5\libraries\SD\utility;C:\devt\arduino\arduino-1.0.5\libraries\IRremote;C:\devt\arduino\arduino-1.0.5\libraries\IRremote\utility;C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\arm-none-eabi\include;C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\arm-none-eabi\include;C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\lib\gcc\arm-none-eabi\4.7.2\include;C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\lib\gcc\arm-none-eabi\4.7.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>C:\devt\arduino\projects\zumo1\Visual Micro\.zumo1.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
       <PreprocessorDefinitions>ARDUINO=105;ARDUINO_MAIN;__AVR__;__avr__;F_CPU=96000000;USB_SERIAL;LAYOUT_US_ENGLISH;__cplusplus;__MK20DX256__;TEENSYDUINO=117;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -64,6 +64,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="pins.txt" />
+    <None Include="zmodem.h" />
     <None Include="zumo1.ino">
       <FileType>CppCode</FileType>
     </None>
@@ -94,6 +96,8 @@
     <ClCompile Include="irstuff.cpp" />
     <ClCompile Include="pysystem.c" />
     <ClCompile Include="sdfileio.cpp" />
+    <ClCompile Include="xmodem.cpp" />
+    <ClCompile Include="zmodem.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
