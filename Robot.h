@@ -94,6 +94,8 @@ public:
     }
   }
 
+  virtual void MotorTest( unsigned long duration, unsigned long pause );
+
   Stream *sout;
   RobotIMU * imu;
   RobotProximity * proximity;
@@ -166,6 +168,8 @@ public:
     sout->print(", ");
     sout->println(motor_R->getPWM());
   }
+
+  virtual void MotorTest( unsigned long duration, unsigned long pause );
 
   RobotMotor * motor_L;
   RobotMotor * motor_R;

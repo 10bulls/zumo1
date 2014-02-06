@@ -277,7 +277,6 @@ void setup()
 	else
 		Serial.println("OK");
 
-  
 	robot.setup();
   
 	//  analogReference(EXTERNAL);
@@ -338,25 +337,18 @@ void setup()
 
 	robot.setAction(&action_rest);
 	
-	// Serial.println("Hello minion!");
 /*
 	tone(BUZZER_PIN,1000);
 	delay(500);
 	noTone(BUZZER_PIN);
 	pinMode(BUZZER_PIN,INPUT);
 */
-	// MotorTest( 1000, 500 );
-  
-	// imu.log_max = true;
 
-//	run_python_cmd_str("print(\"python says hi!\")");
-
-//	do_file("boot.py");
 
 	// OK, now let robot decide where stdout goes
 	set_stdout_callback(stdout_print_strn_robot);
 
-
+	do_file("boot.py");
 }
 
 #if 0
@@ -572,133 +564,6 @@ void SetQuickAction(int i)
   {
     quick_action = i;
     robot.setAction(QuickActions[i]);
-  }
-}
-
-void IRMenu()
-{
-  boolean handled = false;
-  
-  //if (!gmodes[Application::gmode]->allowIRMenu()) return;
-  // if (Application::gmode == MODE_IR) return;
-  
-  if (irrecv.decode(&results)) 
-  {
-    unsigned int button = IRButtonMap(results.value & 0x7ff);
-
-//    robot.sout->println(button);
- 
-    switch(button)
-    {
-      case BUTTON_NUM_0:
-      case BUTTON_NUM_1:
-      case BUTTON_NUM_2:
-      case BUTTON_NUM_3:
-      case BUTTON_NUM_4:
-      case BUTTON_NUM_5:
-      case BUTTON_NUM_6:
-      case BUTTON_NUM_7:
-      case BUTTON_NUM_8:
-      case BUTTON_NUM_9:
-        SetQuickAction(button-BUTTON_NUM_0);
-        break;
-      case BUTTON_RIGHT:
-        action_spin_100ms.direction = CW;
-        robot.setAction( &action_spin_100ms );
-        break;
-      case BUTTON_LEFT:
-        action_spin_100ms.direction = CCW;
-        robot.setAction( &action_spin_100ms );
-        break;
-      case BUTTON_UP:
-        robot.setAction( &action_forward_med );
-        break;
-      case BUTTON_DOWN:
-        robot.setAction( &action_reverse_med );
-        break;
-      case BUTTON_NEXT:
-        action_spin_45deg.direction = CW;
-        robot.setAction( &action_spin_45deg );
-        break;
-      case BUTTON_PREV:
-        action_spin_45deg.direction = CCW;
-        robot.setAction( &action_spin_45deg );
-        break;
-      case BUTTON_PLAY:
-        imu.log_max = false;
-        robot.sout->println("IMU");      
-        delay(100);
-        StartIMU();
-        break;
-      case BUTTON_REC:
-        imu.log_max = true;
-        robot.sout->println("IMU-MAX");      
-        delay(100);
-        StartIMU();
-        break;
-      case BUTTON_STOP:
-        robot.sout->println("IMU");      
-        StopIMU();
-        delay(100);
-        break;
-      case BUTTON_OK:
-        //imu.test_buffer_write(222);
-        //imu.dump_buffer(&Serial);
-        //delay(100);
-        break;
-    }
-    
-    irrecv.resume(); // Receive the next value
-
-  }
-}
-
-void MotorTest( unsigned long duration, unsigned long pause )
-{
-  static byte speeds[] = { 64, 128, 192, 255 };
-
-  int i;
-
-  for (int j=0;j<4;j++)
-  {
-    digitalWrite( MOTOR_R_DIR, j&1 ); 
-    digitalWrite( MOTOR_L_DIR, j>>1 ); 
-
-    // Right motor only test
-    analogWrite( MOTOR_R_PWM, 0 );  
-    analogWrite( MOTOR_L_PWM, 0 );  
-    
-    for(i=0; i < 4; i++)
-    {
-      analogWrite( MOTOR_R_PWM, speeds[i] );
-      //analogWrite( MOTOR_L_PWM, speeds[i] );
-      delay(duration);
-    }
-    analogWrite( MOTOR_R_PWM, 0 );  
-    delay(pause);
-  
-    // Left motor only test
-    for(i=0; i < 4; i++)
-    {
-      //analogWrite( MOTOR_R_PWM, speeds[i] );
-      analogWrite( MOTOR_L_PWM, speeds[i] );
-      delay(duration);
-    }
-    analogWrite( MOTOR_L_PWM, 0 );
-    
-    delay(pause);
-    
-    // Both motors
-    for(i=0; i < 4; i++)
-    {
-      analogWrite( MOTOR_L_PWM, speeds[i] );
-      analogWrite( MOTOR_R_PWM, speeds[i] );
-      delay(duration);
-    }
-    analogWrite( MOTOR_L_PWM, 0 );
-    analogWrite( MOTOR_R_PWM, 0 );
-    
-    delay(pause);
   }
 }
 
@@ -1092,3 +957,83 @@ void parse_serial_buffer()
   iserial_buffer = 0;
 }
 
+void IRMenu()
+{
+	boolean handled = false;
+  
+	//if (!gmodes[Application::gmode]->allowIRMenu()) return;
+	// if (Application::gmode == MODE_IR) return;
+  
+	if (irrecv.decode(&results)) 
+	{
+		unsigned int button = IRButtonMap(results.value & 0x7ff);
+		//    robot.sout->println(button);
+ 
+		switch(button)
+		{
+			case BUTTON_NUM_0:
+			case BUTTON_NUM_1:
+			case BUTTON_NUM_2:
+			case BUTTON_NUM_3:
+			case BUTTON_NUM_4:
+			case BUTTON_NUM_5:
+			case BUTTON_NUM_6:
+			case BUTTON_NUM_7:
+			case BUTTON_NUM_8:
+			case BUTTON_NUM_9:
+				SetQuickAction(button-BUTTON_NUM_0);
+				break;
+			case BUTTON_RIGHT:
+				action_spin_100ms.direction = CW;
+				robot.setAction( &action_spin_100ms );
+				break;
+			case BUTTON_LEFT:
+				action_spin_100ms.direction = CCW;
+				robot.setAction( &action_spin_100ms );
+				break;
+			case BUTTON_UP:
+				robot.setAction( &action_forward_med );
+				break;
+			case BUTTON_DOWN:
+				robot.setAction( &action_reverse_med );
+				break;
+			case BUTTON_NEXT:
+				action_spin_45deg.direction = CW;
+				robot.setAction( &action_spin_45deg );
+				break;
+			case BUTTON_PREV:
+				action_spin_45deg.direction = CCW;
+				robot.setAction( &action_spin_45deg );
+				break;
+			case BUTTON_PLAY:
+				imu.log_max = false;
+				robot.sout->println("IMU");      
+				delay(100);
+				StartIMU();
+				break;
+			case BUTTON_REC:
+				imu.log_max = true;
+				robot.sout->println("IMU-MAX");      
+				delay(100);
+				StartIMU();
+				break;
+			case BUTTON_STOP:
+				robot.sout->println("IMU");      
+				StopIMU();
+				delay(100);
+				break;
+			case BUTTON_OK:
+				//imu.test_buffer_write(222);
+				//imu.dump_buffer(&Serial);
+				//delay(100);
+				break;
+			case BUTTON_TEXT:
+				robot.MotorTest( 1000, 500 );
+				break;
+		}
+    
+		irrecv.resume(); // Receive the next value
+		
+
+	}
+}

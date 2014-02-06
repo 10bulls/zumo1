@@ -93,8 +93,12 @@
     <ClInclude Include="Visual Micro\.zumo1.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="compass.cpp" />
+    <ClCompile Include="gyro.cpp" />
     <ClCompile Include="irstuff.cpp" />
     <ClCompile Include="pysystem.c" />
+    <ClCompile Include="reflectance.cpp" />
+    <ClCompile Include="Robot.cpp" />
     <ClCompile Include="sdfileio.cpp" />
     <ClCompile Include="xmodem.cpp" />
     <ClCompile Include="zmodem.cpp" />
