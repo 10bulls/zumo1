@@ -47,18 +47,7 @@ class Robot;
 // #define MOTOR_L_PWM  10
 #define MOTOR_L_PWM  4
 
-#define CW      0
-#define CCW     1
-
 #define IR_FRONT   A9
-
-//int SPEED_FAST = 128;  // 0x1e
-//int SPEED_MED  = 64;
-//int SPEED_SLOW = 32;  // 0x5a
-// int SPEED_FAST = 128;  // 0x1e
-int SPEED_FAST = 0xff;  // 0x1e
-int SPEED_MED  = 128;
-int SPEED_SLOW = 64;  // 0x5a
 
 //int distance_target_l = 0;
 //int distance_target_r = 0;
@@ -201,6 +190,12 @@ int quick_action = 0;
 
 //unsigned long tlast = millis();
 
+// protypes from compass.cpp
+void dump_compass_config(LSM303 * compass, Stream * sout);
+void compass_calibrate(Robot * bot, LSM303 * compass, RobotIMU * imu, boolean auto_rotate);
+void read_compass_config_from_eeprom(LSM303 * compass, int a);
+void write_compass_config_to_eeprom(LSM303 * compass, int a);
+
 void Robot::setAction( RobotAction * action )
 {
 	// if current action already set ignore (likely due to switch bounce or multiple IR)
@@ -298,7 +293,7 @@ void setup()
 	compass.m_min = (LSM303::vector<int16_t>){-295, -57, -501};
 	compass.m_max = (LSM303::vector<int16_t>){+589, +1014, +385};
 	*/
-	read_compass_config_from_eeprom();
+	read_compass_config_from_eeprom(&compass,EEPROM_COMPASS);
 
 	if (!gyro.init())
 	{
@@ -937,7 +932,7 @@ void parse_serial_buffer()
         delay(100);
         calibrate_reflectance_array();
 		*/
-		compass_calibrate(true);
+		compass_calibrate(&robot,&compass,&imu,true);
         break;
 
       case 'P':
@@ -1034,7 +1029,7 @@ void parse_serial_buffer()
         robot.sout->println("Saving gyro data...");
         write_gyro_zero_to_eeprom();
 		robot.sout->println("Saving compass data...");
-		write_compass_config_to_eeprom();
+		write_compass_config_to_eeprom(&compass,EEPROM_COMPASS);
         robot.sout->println("done.");
         break;
 
@@ -1068,7 +1063,7 @@ void parse_serial_buffer()
 
         dump_reflectance_calibration();
         dump_gzero();
-		dump_compass_config();
+		dump_compass_config(&compass,robot.sout);
 
 /*        
         Serial.print("duration=");
@@ -1204,76 +1199,5 @@ int read_reflectance_from_eeprom()
   dump_reflectance_calibration();
   
   return n;
-}
-
-void compass_calibrate(boolean auto_rotate)
-{
-	robot.sout->println("Rotate compass about all axis");
-
-	// save current min/max Z
-	int minz = compass.m_min.z;
-	int maxz = compass.m_max.z;
-
-	if (auto_rotate)
-	{
-		robot.spin_pwm(CW,SPEED_SLOW);
-	}
-
-	imu.start();
-
-	imu.log_max = true;
-
-	for(unsigned int t=millis(); millis()-t < 10000; )
-	{
-		imu.loop();
-	}
-
-	if (auto_rotate)
-	{
-		robot.stop();
-		// if auto rotate, restore current min/max Z as we are just spinning about Z axis...
-		imu.mmin.z = minz;
-		imu.mmax.z = maxz;
-	}
-
-	imu.stop();
-
-	compass.m_min = imu.mmin;
-	compass.m_max = imu.mmax;
-
-	dump_compass_config();
-}
-
-void read_compass_config_from_eeprom()
-{
-	int a = EEPROM_COMPASS;
-	eeprom_read_block((void*)&compass.m_min, (const void*)a, sizeof(LSM303::vector<int16_t>));
-	a += sizeof(LSM303::vector<int16_t>);
-	eeprom_read_block((void*)&compass.m_max, (const void*)a, sizeof(LSM303::vector<int16_t>));
-}
-
-void write_compass_config_to_eeprom()
-{
-	int a = EEPROM_COMPASS;
-	eeprom_write_block((const void*)&compass.m_min, (void*)a, sizeof(LSM303::vector<int16_t>));
-	a += sizeof(LSM303::vector<int16_t>);
-	eeprom_write_block((const void*)&compass.m_max, (void*)a, sizeof(LSM303::vector<int16_t>));
-}
-
-
-void dump_compass_config()
-{
-  robot.sout->print("compass.min(x,y,z) = ");
-  robot.sout->print(compass.m_min.x);
-  robot.sout->print(",");
-  robot.sout->print(compass.m_min.y);
-  robot.sout->print(",");
-  robot.sout->println(compass.m_min.z);
-  robot.sout->print("compass.max(x,y,z) = ");
-  robot.sout->print(compass.m_max.x);
-  robot.sout->print(",");
-  robot.sout->print(compass.m_max.y);
-  robot.sout->print(",");
-  robot.sout->println(compass.m_max.z);
 }
 

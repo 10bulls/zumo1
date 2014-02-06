@@ -1,6 +1,10 @@
 #ifndef RobotIMU_h_defined
 #define RobotIMU_h_defined
 
+#include <Wire.h>
+#include <LSM303.h>
+#include <L3G.h>
+
 #define IMU_BUFF_SIZE  100
 
 class RobotIMU
@@ -189,7 +193,7 @@ public:
   float roll()
   {
     // scale by 1/000 as reading is 1mg per LSB
-    float ax = (pcompass->a.x >> 4);
+    //float ax = (pcompass->a.x >> 4);
     float ay = (pcompass->a.y >> 4);
     float az = (pcompass->a.z >> 4);
 

@@ -1,6 +1,24 @@
 #ifndef Robot_h_defined
 #define Robot_h_defined
 
+class RobotAction;
+
+#include "RobotMotor.h"
+#include "RobotIMU.h"
+#include "RobotProximity.h"
+
+#define CW      0
+#define CCW     1
+
+//int SPEED_FAST = 128;  // 0x1e
+//int SPEED_MED  = 64;
+//int SPEED_SLOW = 32;  // 0x5a
+// int SPEED_FAST = 128;  // 0x1e
+#define SPEED_FAST 0xff
+#define SPEED_MED  128
+#define SPEED_SLOW 64
+
+
 class Robot
 {
 public:
@@ -9,6 +27,8 @@ public:
     sout = &Serial3;
     imu = pimu;
     proximity = pprox;
+
+	BOT = this;
   }
   
   virtual void setup()
@@ -79,6 +99,8 @@ public:
   RobotProximity * proximity;
   
   RobotAction *paction;
+
+  static Robot * BOT;
 };
 
 class RobotTank : public Robot

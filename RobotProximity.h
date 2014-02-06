@@ -21,6 +21,7 @@ public:
   float distance;    // cm
 };
 
+/*
 prog_uchar transferFunctionLUT3V[] PROGMEM =
 	{
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -40,7 +41,7 @@ prog_uchar transferFunctionLUT3V[] PROGMEM =
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	};
-
+*/
 
 class SharpIR : public RobotProximity
 {
