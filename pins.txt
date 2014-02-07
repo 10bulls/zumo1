@@ -1,4 +1,4 @@
-/*
+
 --- <left>
 
 0	RX1			: IR Rremote recv
@@ -51,4 +51,13 @@ CLK	-> 13
 DO	-> 12 
 DI  -> 11 	
 CS  -> 10	
+
+----
+On ANT
+Serial = COM45
+Bluetooth = COM51
+
+On LAP
+Serial = COM5
+Bluetooth = COM12
 
