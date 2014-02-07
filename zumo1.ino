@@ -92,8 +92,8 @@ ZumoReflectanceSensorArray reflectanceSensors;
 // ZumoReflectanceSensorArray reflectanceSensors(sensorPins, sizeof(sensorPins), 2000, QTR_NO_EMITTER_PIN );
 
 // Define an array for holding sensor values.
-#define NUM_SENSORS 6
-unsigned int sensorValues[NUM_SENSORS];
+//#define NUM_SENSORS 6
+//unsigned int sensorValues[NUM_SENSORS];
 
 #define EEPROM_REFLECT      0
 #define EEPROM_REFLECT_LEN  (2*NUM_SENSORS*sizeof(unsigned int))
@@ -116,7 +116,7 @@ boolean dump_imu = false;
 RobotMotor motor_left( MOTOR_L_PWM, MOTOR_L_DIR );
 RobotMotor motor_right( MOTOR_R_PWM, MOTOR_R_DIR );
 
-RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR);
+RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR, &reflectanceSensors );
 
 #include "RobotAction.h"
 
@@ -229,6 +229,7 @@ void Robot::setAction( RobotAction * action )
 		paction = &action_rest;
 	if (paction) 
 	{
+		paction->bot = &robot;
 		//    unsigned long tnow = millis();
 		//    sout->println(tnow-tlast);
 		//    tlast = tnow;
@@ -453,7 +454,10 @@ void loop()
 	{
 		if (!robot.paction->loop())
 		{
-			robot.setAction(robot.paction->pnext_action);
+			if (!python_robot_event("onEnd"))
+			{
+				robot.setAction(robot.paction->pnext_action);
+			}
 		}
 	}
 }
@@ -773,6 +777,11 @@ void parse_serial_buffer(char * sbuff)
 			write_compass_config_to_eeprom(&compass,EEPROM_COMPASS);
 			robot.sout->println("done.");
 			break;
+
+			case 'x':
+				// python_test_call();
+				python_robot_event("doTest");
+				break;
 
 		/*        
 			case 'z':

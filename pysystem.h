@@ -17,6 +17,8 @@ void python_setup(void);
 int xpy_main(void);
 void run_python_cmd_str( const char * cmd );
 bool do_file(const char *filename);
+void python_test_call();
+bool python_robot_event(const char * handler);
 
 #ifdef __cplusplus
 }

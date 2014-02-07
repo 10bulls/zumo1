@@ -43,6 +43,16 @@ void stdout_print_strn_serial3(void *data, const char *str, unsigned int len);
 
 bool do_file(const char *filename);
 
+void robot_move( int direction, int pwm, float prox, unsigned long d );
+void robot_repel( int distance, unsigned long d );
+void robot_rest( unsigned long d );
+void robot_spin(int dir, float degree, int pwm, unsigned long d );
+void robot_scan(boolean dir, float degree, int pwm, unsigned long d );
+void robot_scan2(boolean dir, float degree, int pwm, float distance, unsigned long d );
+void robot_set_heading(float heading, unsigned long d );
+void robot_line_follow(unsigned long d );
+void robot_boundary(unsigned long d );
+
 void flash_error(int n) {
     for (int i = 0; i < n; i++) {
         led_state(PYB_LED_BUILTIN, 1);
@@ -52,36 +62,153 @@ void flash_error(int n) {
     }
 }
 
-/*
-// from malloc0.c
-void __assert_func(void) {
-	// printf("\nASSERT FAIL!");
-	for (;;) {
+// mp_obj_t pybot_move(mp_obj_t odirection, mp_obj_t opwm, mp_obj_t oprox, mp_obj_t oduration ) 
+mp_obj_t pybot_move(int n_args, mp_obj_t *args)
+{
+	printf("MOVE\n");
+
+	if (n_args!=4)
+	{
+		// dir current folder
+		printf("move(dir,pwm,dist,dur)\n");
 	}
-}
-*/
-/*
+	else
+	{
+		int direction = mp_obj_get_int(args[0]);
+		int pwm = mp_obj_get_int(args[1]);
+		/*
+		// TODO: figure out why float isn't working???
+		float prox;
+		if (MP_OBJ_IS_INT(args[2]))
+			prox = mp_obj_get_int(args[2]);
+		else
+			prox = mp_obj_get_float(args[2]);
+		*/
+		
+		int prox = mp_obj_get_int(args[2]);
+		int duration = mp_obj_get_int(args[3]);
+    
+		// printf("MOVE: dir=%i, pwm=%i, prox=%f, d=%ul\n", direction, pwm, prox, duration );
 
-void *calloc(size_t sz, size_t n) {
-	char *ptr = malloc(sz * n);
-	for (int i = 0; i < sz * n; i++) {
-		ptr[i] = 0;
+		robot_move( direction, pwm, prox, duration );
 	}
-	return ptr;
+    return mp_const_none;
 }
 
-void *malloc(size_t n) {
-	return gc_alloc(n);
+mp_obj_t pybot_repel(int n_args, mp_obj_t *args)
+{
+	if (n_args!=2)
+	{
+		printf("repel(dist,dur)\n");
+	}
+	else
+	{
+		int distance = mp_obj_get_int(args[0]);
+		int duration = mp_obj_get_int(args[1]);
+		robot_repel( distance, duration );
+	}
+    return mp_const_none;
 }
 
-void free(void *ptr) {
-	gc_free(ptr);
+mp_obj_t pybot_rest(int n_args, mp_obj_t *args)
+{
+	int duration = 0;
+	if (n_args > 0)
+	{
+		duration = mp_obj_get_int(args[0]);
+	}
+	robot_rest( duration );
+    return mp_const_none;
 }
 
-void *realloc(void *ptr, size_t n) {
-	return gc_realloc(ptr, n);
+mp_obj_t pybot_spin(int n_args, mp_obj_t *args)
+{
+	if (n_args!=4)
+	{
+		printf("spin(dir,degree,pwm,dur)\n");
+	}
+	else
+	{
+		int direction = mp_obj_get_int(args[0]);
+		int degree = mp_obj_get_int(args[1]);
+		int pwm = mp_obj_get_int(args[2]);
+		int duration = mp_obj_get_int(args[3]);
+		robot_spin(direction,(float)degree,pwm, duration );
+	}
+    return mp_const_none;
 }
-*/
+
+mp_obj_t pybot_scan(int n_args, mp_obj_t *args)
+{
+	if (n_args!=4)
+	{
+		printf("scan(dir,degree,pwm,dur)\n");
+	}
+	else
+	{
+		int direction = mp_obj_get_int(args[0]);
+		int degree = mp_obj_get_int(args[1]);
+		int pwm = mp_obj_get_int(args[2]);
+		int duration = mp_obj_get_int(args[3]);
+		robot_scan(direction,degree,pwm, duration );
+	}
+    return mp_const_none;
+}
+
+mp_obj_t pybot_scan2(int n_args, mp_obj_t *args)
+{
+	if (n_args!=5)
+	{
+		printf("scan2(dir,degree,pwm,dur)\n");
+	}
+	else
+	{
+		int direction = mp_obj_get_int(args[0]);
+		int degree = mp_obj_get_int(args[1]);
+		int pwm = mp_obj_get_int(args[2]);
+		int distance = mp_obj_get_int(args[3]);
+		int duration = mp_obj_get_int(args[4]);
+		robot_scan2(direction,degree,pwm,distance,duration );
+	}
+    return mp_const_none;
+}
+
+mp_obj_t pybot_set_heading(int n_args, mp_obj_t *args)
+{
+	if (n_args!=2)
+	{
+		printf("setheading(heading,dur)\n");
+	}
+	else
+	{
+		int heading = mp_obj_get_int(args[0]);
+		int duration = mp_obj_get_int(args[1]);
+		robot_set_heading(heading,duration );
+	}
+    return mp_const_none;
+}
+
+mp_obj_t pybot_line_follow(int n_args, mp_obj_t *args)
+{
+	int duration = 0;
+	if (n_args > 0)
+	{
+		duration = mp_obj_get_int(args[0]);
+	}
+	robot_line_follow( duration );
+    return mp_const_none;
+}
+
+mp_obj_t pybot_boundary(int n_args, mp_obj_t *args)
+{
+	int duration = 0;
+	if (n_args > 0)
+	{
+		duration = mp_obj_get_int(args[0]);
+	}
+	robot_boundary( duration );
+    return mp_const_none;
+}
 
 
 static const char *help_text = "Hi!\n";
@@ -699,6 +826,77 @@ bool do_file(const char *filename) {
 
 ////////////////////////////////////////////////////////////////////
 
+bool python_robot_event(const char * handler)
+{
+	bool handled = false;
+
+	nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) 
+	{
+		// find 'robot.doTest' function
+		mp_obj_t bot = rt_load_name( QSTR_FROM_STR_STATIC("robot") );
+		if (bot == mp_const_none) 
+		{
+			printf("robot not found");
+		}
+		else
+		{
+			mp_obj_t fun;
+			// printf("FIND\n");
+			// rt_load_method(bot,QSTR_FROM_STR_STATIC(handler),&fun);
+			rt_load_method(bot,qstr_from_str(handler),&fun);
+			if (fun != MP_OBJ_NULL && fun != mp_const_none) 
+			{
+				//printf("CALL\n");
+				mp_obj_t ret = rt_call_function_0(fun);
+				if (ret != mp_const_none) 
+				{
+					handled = mp_obj_get_int(ret) != 0;
+				}
+			}
+		}
+        nlr_pop();
+    } 
+	else 
+	{
+        // uncaught exception
+		// printf("ERROR\n");
+        mp_obj_print_exception((mp_obj_t)nlr.ret_val);
+		gc_collect();
+    }
+	// gc_collect();
+	// pyb_info();
+
+	return handled;
+}
+
+
+void python_test_call()
+{
+	// find 'saybottom' function
+	mp_obj_t fun = rt_load_name( QSTR_FROM_STR_STATIC("saybottom") );
+
+	if (fun == mp_const_none) 
+	{
+		printf("saybottom() not found");
+		return;
+	}
+
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) 
+	{
+        rt_call_function_0(fun);
+        nlr_pop();
+    } 
+	else 
+	{
+        // uncaught exception
+        mp_obj_print_exception((mp_obj_t)nlr.ret_val);
+    }
+	// gc_collect();
+	pyb_info();
+}
+
 void run_python_cmd_str( const char * cmd )
 {
 	// mp_lexer_t *lex = mp_lexer_new_from_memzip_file(filename);
@@ -866,6 +1064,20 @@ void python_setup(void)
 		rt_store_name(QSTR_FROM_STR_STATIC("type"), rt_make_function_n(1,pyb_type));
 		rt_store_name(QSTR_FROM_STR_STATIC("hex"), rt_make_function_n(1,pyb_hex_dump));
 		rt_store_name(MP_QSTR_delay, rt_make_function_n(1,pyb_delay));
+
+		mp_obj_t bot = mp_obj_new_module(QSTR_FROM_STR_STATIC("robot"));
+		// move( dir, pwm, proximity, duration )
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("move"), rt_make_function_var(0,pybot_move));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("repel"), rt_make_function_var(0,pybot_repel));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("rest"), rt_make_function_var(0,pybot_rest));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("spin"), rt_make_function_var(0,pybot_spin));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("scan"), rt_make_function_var(0,pybot_scan));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("scan2"), rt_make_function_var(0,pybot_scan2));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("head"), rt_make_function_var(0,pybot_set_heading));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("line"), rt_make_function_var(0,pybot_line_follow));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("boundary"), rt_make_function_var(0,pybot_boundary));
+		rt_store_name(QSTR_FROM_STR_STATIC("robot"), bot);
+
     }
 }
 

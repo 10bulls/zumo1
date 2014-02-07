@@ -3,6 +3,7 @@
 
 class RobotAction;
 
+#include <QTRSensors.h>
 #include "RobotMotor.h"
 #include "RobotIMU.h"
 #include "RobotProximity.h"
@@ -18,11 +19,12 @@ class RobotAction;
 #define SPEED_MED  128
 #define SPEED_SLOW 64
 
+#define NUM_SENSORS 6
 
 class Robot
 {
 public:
-	Robot(RobotIMU * pimu = 0, RobotProximity * pprox = 0)
+	Robot(RobotIMU * pimu = 0, RobotProximity * pprox = 0, QTRSensorsRC * preflectance=0 )
 	{
 		// Use bluetooth for output
 		// sout = &Serial3;
@@ -30,6 +32,7 @@ public:
 		sout = &Serial;
 		imu = pimu;
 		proximity = pprox;
+		preflect = preflectance;
 		// Set a global robot pointer (should only be one)
 		BOT = this;
 	}
@@ -102,16 +105,23 @@ public:
 	Stream *sout;
 	RobotIMU * imu;
 	RobotProximity * proximity;
+	QTRSensorsRC * preflect;
+	// hard code NUM_SENSORS=6 for now...
+	// int num_reflect_sensors=0;
   
 	RobotAction *paction;
 
 	static Robot * BOT;
+
+	
+	unsigned int sensorValues[NUM_SENSORS];
+
 };
 
 class RobotTank : public Robot
 {
 public:
-	RobotTank(RobotMotor * lm, RobotMotor * rm, RobotIMU * pimu=0, RobotProximity * pprox=0 ) : Robot(pimu, pprox)
+	RobotTank(RobotMotor * lm, RobotMotor * rm, RobotIMU * pimu=0, RobotProximity * pprox=0, QTRSensorsRC * preflectance=0  ) : Robot(pimu, pprox, preflectance)
 	{
 		motor_L = lm;
 		motor_R = rm;

@@ -35,13 +35,14 @@ public:
   
   virtual void dump()
   {
-    // robot.sout->println("?");
-    robot.sout->println("?");
+	bot->sout->print("duration=");
+    bot->sout->print(duration);
   }
   
   unsigned long tstart;
   unsigned long duration;
   RobotAction * pnext_action;
+  Robot * bot;
 };
 
 class ActionRest : public RobotAction
@@ -54,12 +55,12 @@ public:
   virtual void start()
   {
     RobotAction::start();
-    robot.stop();
+    bot->stop();
   }
 
   virtual void dump()
   {
-    robot.sout->println("rest");
+    bot->sout->println("rest");
   }
 };
 
@@ -79,12 +80,12 @@ public:
     RobotAction::start();
     if (degree_target > 0)
     {
-	  imu.start();
+		bot->imu->start();
       // StartIMU();
     }
 	degrees=0;
-	gyro.read();
-    robot.spin_pwm(direction,speed_pwm);
+	bot->imu->pgyro->read();
+    bot->spin_pwm(direction,speed_pwm);
 	time_us = micros();
   }
 
@@ -102,7 +103,7 @@ public:
       }
 	  */
 
-	  	imu.loop();
+	  	bot->imu->loop();
 //!		 gyro.read();
 
 		unsigned long us = micros();
@@ -111,7 +112,7 @@ public:
 
 		time_us = us;
 
-		degrees += (gyro.g.z - imu.gzero.z) * 0.00875 * (float)dt / 1.0e6;
+		degrees += (bot->imu->pgyro->g.z - bot->imu->gzero.z) * 0.00875 * (float)dt / 1.0e6;
       
       float diff = 0;
     
@@ -148,30 +149,30 @@ public:
 	if (degree_target > 0)
     {
 		// StopIMU();
-		robot.stop();
+		bot->stop();
 		for(int i=0;i<50;i++)
 		{
-			imu.loop();
+			bot->imu->loop();
 			// gyro.read();
 			unsigned long us = micros();
 			float dt = us - time_us;
 			time_us = us;
-			degrees += (gyro.g.z - imu.gzero.z) * 0.00875 * (float)dt / 1.0e6;
+			degrees += (bot->imu->pgyro->g.z - bot->imu->gzero.z) * 0.00875 * (float)dt / 1.0e6;
 		}
-		imu.stop();
+		bot->imu->stop();
 		//imu.dump_buffer(robot.sout);
     }
-    robot.sout->print("gyro change=");      
-    // robot.sout->println(imu.degrees);      
-	robot.sout->println(degrees);      
+    bot->sout->print("gyro change=");      
+    // bot->sout->println(imu.degrees);      
+	bot->sout->println(degrees);      
   }
 
   virtual void dump()
   {
-    robot.sout->print("spin(");
-    robot.sout->print(direction ? "CCW," : "CW,");
-    robot.sout->print(degree_target);
-    robot.sout->println(" deg)");  
+    bot->sout->print("spin(");
+    bot->sout->print(direction ? "CCW," : "CW,");
+    bot->sout->print(degree_target);
+    bot->sout->println(" deg)");  
   }
   
 	unsigned long time_us;
@@ -199,8 +200,8 @@ public:
 	virtual void start()
 	{
 		RobotAction::start();
-		compass.read();
-		heading = imu.getHeading();
+		bot->imu->pcompass->read();
+		heading = bot->imu->getHeading();
 	
 		speed_pwm = 0;
 		error = 0;
@@ -210,17 +211,17 @@ public:
 		samplesum = heading * NUM_SAMPLES;
 		for (int i=0;i<NUM_SAMPLES;i++) samples[i] = heading;
 
-		robot.sout->print("heading");
-		robot.sout->print("\t");
-		robot.sout->print("error");
-		robot.sout->print("\t");
-		robot.sout->print("total_error");
-		robot.sout->print("\t");
-		robot.sout->print("predicted");
-		robot.sout->print("\t");
-		robot.sout->print("pid");
-		robot.sout->print("\t");
-		robot.sout->println("speed_pwm");
+		bot->sout->print("heading");
+		bot->sout->print("\t");
+		bot->sout->print("error");
+		bot->sout->print("\t");
+		bot->sout->print("total_error");
+		bot->sout->print("\t");
+		bot->sout->print("predicted");
+		bot->sout->print("\t");
+		bot->sout->print("pid");
+		bot->sout->print("\t");
+		bot->sout->println("speed_pwm");
 
 		time_us = micros();
 
@@ -253,8 +254,8 @@ public:
 	{
 		if (!RobotAction::loop()) return false;
 
-		compass.read();
-		gyro.read();
+		bot->imu->pcompass->read();
+		bot->imu->pgyro->read();
 
 		unsigned long us = micros();
 
@@ -265,7 +266,7 @@ public:
 		// heading = imu.getHeading();
 		// running average...
 		samplesum -= samples[isample];
-		samples[isample] = imu.getHeading();
+		samples[isample] = bot->imu->getHeading();
 		samplesum += samples[isample];
 		isample++;
 		if (isample == NUM_SAMPLES) isample=0;
@@ -285,24 +286,24 @@ public:
 //		{
 
 			// use gyro to calculate predicted degree change
-			float ddegree = (gyro.g.z - imu.gzero.z) * 0.00875 * (float)dt / 1.0e6;
+			float ddegree = (bot->imu->pgyro->g.z - bot->imu->gzero.z) * 0.00875 * (float)dt / 1.0e6;
 
 			float pid = Kp*error + Ki*total_error + Kd*(-ddegree);
 			// float pid = Kp*error + Ki*total_error + Kd*(error-last_error);
 
 			speed_pwm = constrain( speed_pwm + pid, -200, 200);
 
-			robot.sout->print(heading);
-			robot.sout->print("\t");
-			robot.sout->print(error);
-			robot.sout->print("\t");
-			robot.sout->print(total_error);
-			robot.sout->print("\t");
-			robot.sout->print(error-ddegree);
-			robot.sout->print("\t");
-			robot.sout->print(pid);
-			robot.sout->print("\t");
-			robot.sout->println(speed_pwm);
+			bot->sout->print(heading);
+			bot->sout->print("\t");
+			bot->sout->print(error);
+			bot->sout->print("\t");
+			bot->sout->print(total_error);
+			bot->sout->print("\t");
+			bot->sout->print(error-ddegree);
+			bot->sout->print("\t");
+			bot->sout->print(pid);
+			bot->sout->print("\t");
+			bot->sout->println(speed_pwm);
 
 			if (speed_pwm >= 0)
 				direction = CW;
@@ -311,9 +312,9 @@ public:
 
 			// speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
 			if (abs(speed_pwm) < 20)
-				robot.stop();
+				bot->stop();
 			else
-				robot.spin_pwm(direction,(int)abs(speed_pwm));
+				bot->spin_pwm(direction,(int)abs(speed_pwm));
 //		}
 
 		last_error = error;
@@ -326,16 +327,16 @@ public:
 	virtual void end()
 	{
 		RobotAction::end();
-		robot.sout->print("heading=");      
-		// robot.sout->println(imu.degrees);      
-		robot.sout->println(imu.getHeading());      
+		bot->sout->print("heading=");      
+		// bot->sout->println(imu.degrees);      
+		bot->sout->println(bot->imu->getHeading());      
 	}
 
 	virtual void dump()
 	{
-		robot.sout->print("heading(");
-		robot.sout->print(heading_target);
-		robot.sout->println(" deg)");  
+		bot->sout->print("heading(");
+		bot->sout->print(heading_target);
+		bot->sout->println(" deg)");  
 	}
   
 
@@ -378,14 +379,14 @@ public:
                 // 2 = reverse spin
                 // 3 = original spin, stop at best proximity
                 
-    distance_max = robot.proximity->distance;                
+    distance_max = bot->proximity->distance;                
   }
 
   virtual boolean loop()
   {
     if (!ActionSpin::loop()) 
     {
-      robot.imu->degrees = 0;
+      bot->imu->degrees = 0;
       
       stage++;
       if (stage > 3) return false;
@@ -398,11 +399,11 @@ public:
         duration *= 2;
       }
       
-      robot.spin_dir(direction);
+      bot->spin_dir(direction);
 
     }
     
-    if (robot.proximity->distance >= distance_max)
+    if (bot->proximity->distance >= distance_max)
     {
       if (stage == 3)
       {
@@ -411,7 +412,7 @@ public:
       }
       else
       {
-        distance_max = robot.proximity->distance;
+        distance_max = bot->proximity->distance;
       }
     }
 
@@ -425,10 +426,10 @@ public:
 
   virtual void dump()
   {
-    robot.sout->print("scan(");
-    robot.sout->print(direction ? "CCW," : "CW,");
-    robot.sout->print(degree_target);
-    robot.sout->println(" deg)");  
+    bot->sout->print("scan(");
+    bot->sout->print(direction ? "CCW," : "CW,");
+    bot->sout->print(degree_target);
+    bot->sout->println(" deg)");  
   }
 
   boolean start_direction;  
@@ -456,12 +457,12 @@ public:
   {
     if (!ActionSpin::loop()) return false; 
     
-    if (robot.proximity->distance >= distance_target)
+    if (bot->proximity->distance >= distance_target)
     {
       if (distance_ok)
       {
         // if been OK for 5? degrees, end action
-        if (abs(robot.imu->degrees - degree_ok) >= 15)
+        if (abs(bot->imu->degrees - degree_ok) >= 15)
         {
           return false;
         }
@@ -469,7 +470,7 @@ public:
       else
       {
         distance_ok = true;
-        degree_ok = robot.imu->degrees;
+        degree_ok = bot->imu->degrees;
       }
     }
     else
@@ -487,10 +488,10 @@ public:
 
   virtual void dump()
   {
-    robot.sout->print("scan2(");
-    robot.sout->print(direction ? "CCW," : "CW,");
-    robot.sout->print(degree_target);
-    robot.sout->println(" deg)");  
+    bot->sout->print("scan2(");
+    bot->sout->print(direction ? "CCW," : "CW,");
+    bot->sout->print(degree_target);
+    bot->sout->println(" deg)");  
   }
 
   boolean distance_ok;
@@ -511,14 +512,14 @@ public:
   virtual void start()
   {
     RobotAction::start();
-    robot.move_pwm(direction,speed_pwm);
+    bot->move_pwm(direction,speed_pwm);
   }
 
   virtual boolean loop()
   {
     if (!RobotAction::loop()) return false;
     
-    if (robot.proximity->distance < distance_target) return false;
+    if (bot->proximity->distance < distance_target) return false;
     
     return true;
   }
@@ -532,11 +533,15 @@ public:
 
   virtual void dump()
   {
-    robot.sout->print("move(");
-    robot.sout->print(direction ? "REVERSE" : "FORWARD");
-    robot.sout->print("pwm=");
-    robot.sout->print(speed_pwm);
-    robot.sout->println(")");  
+    bot->sout->print("move(");
+    bot->sout->print(direction ? "REVERSE" : "FORWARD");
+    bot->sout->print(",pwm=");
+    bot->sout->print(speed_pwm);
+    bot->sout->print(",dist=");
+    bot->sout->print(distance_target);
+	bot->sout->print(",");
+	RobotAction::dump();
+    bot->sout->println(")");  
   }
   
   boolean direction;
@@ -563,20 +568,20 @@ public:
 
     // robot.sout->println(robot.proximity->distance);
   
-    if (robot.proximity->distance > 40 || robot.proximity->distance < 5 )
+    if (bot->proximity->distance > 40 || bot->proximity->distance < 5 )
     {
       // error or really close to target
-      robot.stop();
+      bot->stop();
     }
-    else if (abs(robot.proximity->distance - distance_target) <= 1.0)
+    else if (abs(bot->proximity->distance - distance_target) <= 1.0)
     {
       // where we want to be
-      robot.stop();
+      bot->stop();
     }
     else
     {
       boolean dir = FORWARD;
-      float diff = robot.proximity->distance - distance_target;
+      float diff = bot->proximity->distance - distance_target;
       if (diff < 0) 
       {
         dir = REVERSE;
@@ -586,10 +591,10 @@ public:
       // int speed = SPEED_MED * diff / alpha;
 	  int speed = SPEED_FAST * diff / alpha;
       
-      robot.sout->print("v=");
-      robot.sout->println(speed);
+      bot->sout->print("v=");
+      bot->sout->println(speed);
       
-      robot.move_pwm(dir,speed);
+      bot->move_pwm(dir,speed);
     }
 
     return true;
@@ -597,7 +602,7 @@ public:
 
   virtual void dump()
   {
-    robot.sout->println("repel");
+    bot->sout->println("repel");
   }
 
   float distance_target;  
@@ -671,20 +676,20 @@ public:
     
     robot.sout->print(" --> ");
 */  
-    unsigned int position = reflectanceSensors.readLine(sensorValues);
+    unsigned int position = bot->preflect->readLine(bot->sensorValues);
     // reflectanceSensors.readCalibrated(sensorValues);
 
 if (debugmsg)
 {
     for (byte i = 0; i < NUM_SENSORS; i++)
     {
-      robot.sout->print(sensorValues[i]);
-      robot.sout->print(' ');
+      bot->sout->print(bot->sensorValues[i]);
+      bot->sout->print(' ');
     }
 
     
-    robot.sout->print("    ");
-    robot.sout->println(position);
+    bot->sout->print("    ");
+    bot->sout->println(position);
 //    robot.sout->println();
 //    delay(250);
 }   
@@ -724,15 +729,15 @@ if (debugmsg)
   if (m2Speed > MAX_SPEED)
     m2Speed = MAX_SPEED;
     
-    robot.left_pwm(FORWARD,m1Speed);
-    robot.right_pwm(FORWARD,m2Speed);
+    bot->left_pwm(FORWARD,m1Speed);
+    bot->right_pwm(FORWARD,m2Speed);
     
     return true;
   }
 
   virtual void dump()
   {
-    robot.sout->println("line detect");
+    bot->sout->println("line detect");
   }
   
   int lastError = 0;
@@ -756,7 +761,7 @@ public:
     RobotAction::start();
     stage = 0;
     // robot.forward_pwm(SPEED_SLOW);
-    robot.forward_pwm(SPEED_FAST);
+    bot->forward_pwm(SPEED_FAST);
   }
 
 
@@ -772,7 +777,7 @@ public:
       {
         // turn
         // robot.spin_pwm(turn_dir,SPEED_SLOW);
-        robot.spin_pwm(turn_dir,SPEED_FAST);
+        bot->spin_pwm(turn_dir,SPEED_FAST);
         stage = 2;
         tstart = tnow;
       }
@@ -785,18 +790,18 @@ public:
       {
         // forward
         // robot.forward_pwm(SPEED_SLOW);
-        robot.forward_pwm(SPEED_FAST);
+        bot->forward_pwm(SPEED_FAST);
         stage = 0;
         tstart = tnow;
       }
     }
     
     // read raw sensor values
-    reflectanceSensors.read(sensorValues);
+    bot->preflect->read(bot->sensorValues);
     detect = 0;
     for (byte i = 0; i < NUM_SENSORS; i++)
     {
-      if (sensorValues[i] > 600)
+      if (bot->sensorValues[i] > 600)
       {
         if (i < NUM_SENSORS/2)
           detect = -1;
@@ -837,7 +842,7 @@ public:
       stage = 1;
 
       // robot.reverse_pwm(SPEED_SLOW);      
-      robot.reverse_pwm(SPEED_FAST);      
+      bot->reverse_pwm(SPEED_FAST);      
     }
       
     
@@ -848,7 +853,7 @@ public:
 
   virtual void dump()
   {
-    robot.sout->println("stay in boundary");
+    bot->sout->println("stay in boundary");
   }
   
   int stage = 0;  // 0 = forward
@@ -882,10 +887,10 @@ public:
   {
 	RobotAction::start();
 
-	imu.log_max = true;
+	bot->imu->log_max = true;
 	// StartIMU();
-	imu.start();
-	robot.forward_pwm(SPEED_MED);
+	bot->imu->start();
+	bot->forward_pwm(SPEED_MED);
 	time_us = micros();
 	acceleration = 0;
 	velocity = 0;
@@ -894,28 +899,28 @@ public:
 
   virtual void end()
   {
-	imu.stop();
+	bot->imu->stop();
 	// StopIMU();
-	robot.stop();
+	bot->stop();
 	// delay(200);
 	// StopIMU();
 
-	robot.sout->println("MIN.X\tMIN.Y\tMIN.Z\tMAX.X\tMAX.Y\tMAX.Z");
+	bot->sout->println("MIN.X\tMIN.Y\tMIN.Z\tMAX.X\tMAX.Y\tMAX.Z");
 
-    robot.sout->print(imu.amin.x >> 4);
-    robot.sout->print("\t");
-    robot.sout->print(imu.amin.y >> 4);
-    robot.sout->print("\t");
-    robot.sout->print(imu.amin.z >> 4);
-    robot.sout->print("\t");
-    robot.sout->print(imu.amax.x >> 4);
-    robot.sout->print("\t");
-    robot.sout->print(imu.amax.y >> 4);
-    robot.sout->print("\t");
-    robot.sout->println(imu.amax.z >>4 );
+    bot->sout->print(bot->imu->amin.x >> 4);
+    bot->sout->print("\t");
+    bot->sout->print(bot->imu->amin.y >> 4);
+    bot->sout->print("\t");
+    bot->sout->print(bot->imu->amin.z >> 4);
+    bot->sout->print("\t");
+    bot->sout->print(bot->imu->amax.x >> 4);
+    bot->sout->print("\t");
+    bot->sout->print(bot->imu->amax.y >> 4);
+    bot->sout->print("\t");
+    bot->sout->println(bot->imu->amax.z >>4 );
 
-	robot.sout->print("distance=");
-	robot.sout->println(distance);
+	bot->sout->print("distance=");
+	bot->sout->println(distance);
 
 //	imu.dump_buffer(robot.sout);
 
@@ -926,7 +931,7 @@ public:
   {
 	if (!RobotAction::loop()) return false;
 
-	imu.loop();
+	bot->imu->loop();
 
 	unsigned long us = micros();
 
@@ -934,7 +939,7 @@ public:
 
 	time_us = us;
 
-	float acc = (compass.a.x >> 4)*9.81/1000.0;
+	float acc = (bot->imu->pcompass->a.x >> 4)*9.81/1000.0;
 
 	velocity += (acc + acceleration)/2.0 * (float)dt / 1.0e6;
 
@@ -942,9 +947,9 @@ public:
 
 	acceleration = acc;
 	
-	if ((imu.amin.x >> 4) < -1000) 
+	if ((bot->imu->amin.x >> 4) < -1000) 
 	{
-		robot.sout->println("OUCH!");
+		bot->sout->println("OUCH!");
 		return false;
 	}
 
@@ -975,7 +980,7 @@ public:
 
   virtual void dump()
   {
-    robot.sout->println("accelerometer");
+    bot->sout->println("accelerometer");
   }
 
   unsigned long time_us;
