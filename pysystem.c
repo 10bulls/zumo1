@@ -51,6 +51,7 @@ void flash_error(int n) {
         delay(250);
     }
 }
+
 /*
 // from malloc0.c
 void __assert_func(void) {
@@ -346,8 +347,6 @@ mp_obj_t pyb_transmit(mp_obj_t filename_obj)
 	}
     return mp_const_none;
 }
-
-
 
 mp_obj_t pyb_type(mp_obj_t filename_obj) 
 {

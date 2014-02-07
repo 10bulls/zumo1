@@ -71,6 +71,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CmdLine.h" />
     <ClInclude Include="irstuff.h">
       <FileType>CppCode</FileType>
     </ClInclude>
@@ -99,6 +100,7 @@
     <ClCompile Include="pysystem.c" />
     <ClCompile Include="reflectance.cpp" />
     <ClCompile Include="Robot.cpp" />
+    <ClCompile Include="RobotIMU.cpp" />
     <ClCompile Include="sdfileio.cpp" />
     <ClCompile Include="xmodem.cpp" />
     <ClCompile Include="zmodem.cpp" />
