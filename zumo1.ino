@@ -191,7 +191,7 @@ void stdout_print_strn_robot(void *data, const char *str, unsigned int len)
 }
 
 #define NUM_QUICK_ACTIONS  sizeof(QuickActions)/sizeof(QuickActions[0])
-int quick_action = 0;
+uint8_t quick_action = 0;
 
 //unsigned long tlast = millis();
 
@@ -238,7 +238,7 @@ void Robot::setAction( RobotAction * action )
 	}
 }
 
-void SetQuickAction(int i)
+void SetQuickAction(uint8_t i)
 {
 	if (i < NUM_QUICK_ACTIONS)
 	{
@@ -305,13 +305,10 @@ void setup()
   
 	pinMode( LED_PIN, OUTPUT );
 
-	int sdcard_ok = true;
 	Serial.print("Initializing SD card...");
 	if (!SD.begin(SD_CS)) 
 	{
 		Serial.println("failed!");
-		sdcard_ok = false;
-		// return;
 	}
 	else
 		Serial.println("OK");
@@ -410,9 +407,6 @@ void loop()
 void loop()
 {
 	static boolean button_state=1;
-	static boolean state = 1;
-	static unsigned long tprev = millis();
-	int d = 0;
 
 	IRMenu();
 
@@ -874,8 +868,6 @@ void parse_serial_buffer(char * sbuff)
 
 void IRMenu()
 {
-	boolean handled = false;
-  
 	//if (!gmodes[Application::gmode]->allowIRMenu()) return;
 	// if (Application::gmode == MODE_IR) return;
   

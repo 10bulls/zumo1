@@ -111,7 +111,7 @@ public:
 	virtual void CursorUp()
 	{
 		// poor man's command history
-		for(int i=ibuff; i > 0; i--)
+		for(uint i=ibuff; i > 0; i--)
 			output->write("\b");
 		output->write(buff);
 		for(ibuff=0;ibuff < sizeof(buff)-1 && buff[ibuff]; ibuff++) {}
@@ -151,7 +151,7 @@ public:
 private:
 	int _escape;
 	char buff[CMD_BUFFER_LEN];
-	int ibuff;
+	uint ibuff;
 };
 
 

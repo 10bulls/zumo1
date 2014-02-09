@@ -48,14 +48,8 @@ public:
 	// Read SD file data from given position
     virtual void GetData(uint8_t* buffer, uint32_t position, unsigned length)
     {
-//!		Serial.print("GETDATA P=");
-//!		Serial.print(position);
-//!		Serial.print(" L=");
-//!		Serial.print(length);
 		_sd_file.seek(position);
-		int n = _sd_file.read(buffer,length);
-//!		Serial.print(" N=");
-//!		Serial.println(n);
+		_sd_file.read(buffer,length);
     }
 
 };
@@ -103,7 +97,7 @@ bool send_dataHandler(unsigned long no, char* data, int size)
 {
 //	printf("BLOCK=%u size=%i _send_cnt=%u\n", (int)no, size, _send_cnt );
 	if (_send_cnt == 0) return false;
-	uint32_t l = min( _send_cnt, size );
+	uint32_t l = min( _send_cnt, (uint32_t)size );
 
 	int n = _sd_file.readBytes(data,l);
 

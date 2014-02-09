@@ -164,7 +164,7 @@ bool ZMODEM::Send(const char* filename, uint32_t file_length)
         uint8_t byte, n:4,m:4; // Miscellaneous
         uint8_t mode;          // Type of message received (ZBIN or ZHEX)
 
-        ReceivedType(): garbage(0),incomplete(1),cans(0), byte(),n(),m(0),mode() { }
+        ReceivedType(): crc(0),garbage(0),incomplete(1),cans(0), byte(),n(),m(0),mode() { }
 
         void Reset() { *this = ReceivedType(); }
         void Finish(short type) { message.type = type; incomplete = 0; }

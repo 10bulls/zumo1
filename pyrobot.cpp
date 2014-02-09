@@ -1,16 +1,48 @@
+#include "pysystem.h"
+
 #include "Robot.h"
 #include "RobotAction.h"
 
 
 extern "C" {
 
+void robot_move_pwm( int dir, int pwm )
+{
+	Robot::BOT->move_pwm(dir,pwm);
+}
+
+void robot_spin_pwm( int dir, int pwm )
+{
+	Robot::BOT->move_pwm(dir,pwm);
+}
+
+void robot_stop()
+{
+	Robot::BOT->stop();
+}
+
+int robot_proximity()
+{
+	// TODO: test and get float working
+	return (int)Robot::BOT->proximity->distance;
+}
+
+// Python Action
+PythonAction pybot_python_action;
+void robot_set_python_action(mp_obj_t a)
+{
+	pybot_python_action.SetActionObject(a);
+
+	Robot::BOT->setAction(&pybot_python_action);
+}
+
 // Move
 ActionMove pybot_move_action;
-void robot_move( int direction, int pwm, float prox, unsigned long d )
+void robot_move( int direction, int pwm, float distance_targe, unsigned long d )
 {
 	pybot_move_action.direction = (boolean)direction;
 	pybot_move_action.speed_pwm = pwm;
-	pybot_move_action.distance_target = prox;
+	pybot_move_action.distance_target = distance_targe;
 	pybot_move_action.duration = d;
 
 	Robot::BOT->setAction(&pybot_move_action);

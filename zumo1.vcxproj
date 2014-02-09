@@ -65,6 +65,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="pins.txt" />
+    <None Include="py\BOOT.PY" />
+    <None Include="py\BOX.PY" />
+    <None Include="py\REPEL.PY" />
+    <None Include="py\TESTACTION.PY" />
     <None Include="zmodem.h" />
     <None Include="zumo1.ino">
       <FileType>CppCode</FileType>
@@ -97,6 +101,7 @@
     <ClCompile Include="compass.cpp" />
     <ClCompile Include="gyro.cpp" />
     <ClCompile Include="irstuff.cpp" />
+    <ClCompile Include="pyrobot.cpp" />
     <ClCompile Include="pysystem.c" />
     <ClCompile Include="reflectance.cpp" />
     <ClCompile Include="Robot.cpp" />

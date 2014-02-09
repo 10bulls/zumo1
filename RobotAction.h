@@ -45,6 +45,69 @@ public:
   Robot * bot;
 };
 
+class PythonAction : public RobotAction
+{
+public:
+	PythonAction(unsigned long d=0) : RobotAction(d)
+	{
+		_ActionObject = NULL;
+		_StartFunction = NULL;
+		_LoopFunction = NULL;
+		_EndFunction = NULL;
+		_DumpFunction = NULL;
+	}
+  
+	virtual void start()
+	{
+		RobotAction::start();
+		if (!_ActionObject || !_StartFunction) return;
+		python_call_method(_ActionObject,_StartFunction);
+	}
+
+	virtual boolean loop()
+	{
+		if (!RobotAction::loop()) return false;
+		if (!_ActionObject || !_LoopFunction) return false;
+		return (boolean)python_call_method(_ActionObject,_LoopFunction);
+	}
+
+	virtual void end()
+	{
+		RobotAction::end();
+		if (!_ActionObject || !_EndFunction) return;
+		python_call_method(_ActionObject,_EndFunction);
+	}
+  
+	virtual void dump()
+	{
+		bot->sout->println("python");
+		if (!_ActionObject || !_DumpFunction) return;
+		python_call_method(_ActionObject,_DumpFunction);
+	}
+
+	void SetActionObject(void * a)
+	{
+		_ActionObject = a;
+		// look for start function
+		_StartFunction = (void*)find_python_method(a,"_start");
+		// loop function
+		_LoopFunction = (void*)find_python_method(a,"_loop");
+		// end function
+		_EndFunction = (void*)find_python_method(a,"_end");
+		// dump funtion
+		_DumpFunction = (void*)find_python_method(a,"_dump");
+	}
+
+
+private:
+	void * _ActionObject;
+	void * _StartFunction;
+	void * _LoopFunction;
+	void * _EndFunction;
+	void * _DumpFunction;
+};
+
+
 class ActionRest : public RobotAction
 {
 public:
@@ -867,8 +930,8 @@ public:
                    
   unsigned long tstart;
   
-  int duration_reverse;
-  int duration_turn;
+  unsigned long  duration_reverse;
+  unsigned long  duration_turn;
   
   boolean turn_dir;
   boolean last_turn_dir;
