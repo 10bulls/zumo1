@@ -1,0 +1,63 @@
+
+--- <left>
+
+0	RX1			: IR Rremote recv
+1	TX1			: MOTOR_R_DIR
+2				: MOTOR_L_DIR 
+3 P				: 
+4 P				: MOTOR_L_PWM
+5 P				: <reserve for IRsend>
+6 P				: 
+7	RX3			: Bluetooth TX
+8	TX3			: Bluetooth RX
+9 P	RX2			: MOTOR_R_PWM
+10 P TX2 CS		: SD-CS
+11	DOUT		: SD-DI
+12	DIN			: SD-DO
+
+--- <right>
+
+13	SCK			: LED , SD-CLK
+14	A0			: Reflectance #4
+15	A1			: Battery voltage
+16	A2			: Reflectance #5
+17	A3			: Reflectance #2
+18	A4 SDA0		: SPI (compass, gyro)
+19	A5 SCL0		: SPI (compass, gyro)
+20 P A6			: Zumo buzzer
+21 P A7			: Reflectance #1
+22 P A8			: Reflectance #3
+23 P A9			: IR front proximity
+
+--- <back>
+
+24				: Reflectance #6
+25 P			:
+26  A15			:
+27  A16			:
+28  A17			:
+29  A18			:
+30  A19			:
+31  A20			:
+32 P			:
+33				: Mode Button
+A12				:	
+A13				:
+
+---
+
+Micro SD 
+CLK	-> 13 
+DO	-> 12 
+DI  -> 11 	
+CS  -> 10	
+
+----
+On ANT
+Serial = COM45
+Bluetooth = COM51
+
+On LAP
+Serial = COM5
+Bluetooth = COM12
+

@@ -85,6 +85,7 @@ int IRButtonMap(unsigned int ircode)
     case 0x272:
       return BUTTON_OK;
   }
+  return 0;
 }
 
 
