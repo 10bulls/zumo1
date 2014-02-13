@@ -153,7 +153,11 @@ float RobotIMU::pitch()
 	float ay = (pcompass->a.y >> 4);
 	float az = (pcompass->a.z >> 4);
 
-	return (atan2(ax,sqrt(ay*ay+az*az)) * 180.0)/M_PI;
+	float p = (atan2(ax,sqrt(ay*ay+az*az)) * 180.0)/M_PI;
+
+	if (az > 0) p = -(180+p);
+
+	return p;
 }
 
 float RobotIMU::roll()

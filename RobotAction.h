@@ -1053,4 +1053,165 @@ public:
   float acceleration;
 };
 
+
+#define NUM_PITCH_SAMPLES 4
+
+class ActionBalance : public RobotAction
+{
+public:
+	ActionBalance(float pitch = -80, unsigned long d=0 ) : RobotAction(d)
+	{
+		pitch_target = pitch;
+		l_pwm_bias = 0;
+		r_pwm_bias = 0;
+		steer_timer = 0;
+		pitch_bias = 0;
+	}
+
+	virtual void start()
+	{
+		RobotAction::start();
+		bot->imu->pcompass->read();
+		bot->imu->pgyro->read();
+		pitch = bot->imu->pitch();
+	
+		speed_pwm = 0;
+		error = 0;
+		total_error = 0;
+
+		bot->sout->print("pitch");
+		bot->sout->print("\t");
+		bot->sout->print("error");
+		bot->sout->print("\t");
+		bot->sout->print("ddegree");
+		bot->sout->print("\t");
+		bot->sout->print("pid");
+		bot->sout->print("\t");
+		bot->sout->println("speed_pwm");
+
+		time_us = micros();
+	}
+	
+	virtual boolean loop()
+	{
+		if (!RobotAction::loop()) return false;
+
+		if (steer_timer)
+		{
+			if (millis() - steer_timer > 140)
+			{
+				steer_timer = 0;
+				pitch_bias = 0;
+				l_pwm_bias = 0;
+				r_pwm_bias = 0;
+			}
+		}
+
+
+		bot->imu->pcompass->read();
+		bot->imu->pgyro->read();
+
+		unsigned long us = micros();
+
+		float dt = us - time_us;
+
+		time_us = us;
+
+		// use gyro to calculate predicted degree change..
+		float ddegree = (bot->imu->pgyro->g.y - bot->imu->gzero.y) * 0.00875 * (float)dt / 1.0e6;
+
+		// complementary filter... (combine gyro change with accelerometer data)
+		pitch = 0.98 * (pitch + ddegree) + 0.02 * bot->imu->pitch();
+
+		error = pitch_target - pitch + pitch_bias;
+		
+		float pid = Kp*error + Ki*total_error + Kd*(last_error-error);
+
+//		speed_pwm = constrain( speed_pwm + pid, -220, 220);
+		speed_pwm = constrain( speed_pwm + pid, -200, 200);
+
+		/*
+		bot->sout->print(pitch);
+		bot->sout->print("\t");
+		bot->sout->print(error);
+		bot->sout->print("\t");
+		bot->sout->print(ddegree);
+		bot->sout->print("\t");
+		bot->sout->print(pid);
+		bot->sout->print("\t");
+		bot->sout->println(speed_pwm);
+		*/
+
+		if (speed_pwm >= 0)
+			direction = FORWARD;
+		else
+		{
+			direction = REVERSE;
+		}
+
+		// speed_pwm = SPEED_SLOW + (SPEED_FAST-SPEED_SLOW) * diff / 180.0;
+		// if (abs(speed_pwm) < 20 || abs(error) > 20 )
+		if (abs(error) > 20 )
+			bot->stop();
+		else
+		{
+			bot->left_pwm(direction, (int)abs(speed_pwm) + l_pwm_bias );
+			bot->right_pwm(direction, (int)abs(speed_pwm) + r_pwm_bias );
+			// bot->move_pwm(direction,(int)abs(speed_pwm));
+		}
+
+		last_error = error;
+
+		total_error += error;
+		
+return true;
+	}
+
+	void move( float bias )
+	{
+		steer_timer = millis();
+		pitch_bias = bias;
+	}
+
+	void turn( int direction, int speed )
+	{
+		int d = 1;
+		if (direction==CCW) d = -1;
+		l_pwm_bias = d * speed;
+		r_pwm_bias = -d * speed;
+		steer_timer = millis();
+	}
+
+	virtual void end()
+	{
+		RobotAction::end();
+	}
+
+	virtual void dump()
+	{
+		bot->sout->println("balance");
+	}
+  
+	unsigned long time_us;
+	boolean direction;
+	float speed_pwm;
+	float pitch_target;
+	float pitch;
+  
+	// PID
+	float Kp = 3.2;
+	float Ki = 0.0;
+	float Kd = -40;
+
+	float error;
+	float total_error;
+	float last_error;
+
+	// steering
+	float l_pwm_bias;
+	float r_pwm_bias;
+	float pitch_bias;
+	unsigned long steer_timer;
+};
+
 #endif

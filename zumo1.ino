@@ -160,6 +160,8 @@ ActionHeading action_heading(90.0,0);
 
 ActionAccelerometerTest accelerometer_test(500);
 
+ActionBalance action_balance;
+
 //ActionPlaySong action_song;
 
 RobotAction * QuickActions []
@@ -173,7 +175,8 @@ RobotAction * QuickActions []
   &action_heading,		 // 5
   &action_scan2_rove,    // 6
 //  &action_scan2_ccw,       // 7
-  &accelerometer_test,      // 7
+//  &accelerometer_test,      // 7
+  &action_balance,      // 7
 //  &action_song,      // 7
 //  &action_scan2_rove_ccw,    // 8
   &action_line_detect,    // 8
@@ -431,11 +434,12 @@ void loop()
 	{
 		if (butt)
 		{
-			// TODO: cycle through action mode list (0-9)
-			quick_action++;
-			if (quick_action >= NUM_QUICK_ACTIONS) quick_action=0;
-			robot.setAction(QuickActions[quick_action]);
-    
+			// cycle through action mode list (0-9)
+			//quick_action++;
+			//if (quick_action >= NUM_QUICK_ACTIONS) quick_action=0;
+			//robot.setAction(QuickActions[quick_action]);
+			
+			robot.setAction(&action_rest);
 		}
 		button_state = butt;
 		delay(20);
@@ -774,7 +778,8 @@ void parse_serial_buffer(char * sbuff)
 
 			case 'x':
 				// python_test_call();
-				python_robot_event("doTest");
+				// python_robot_event("doTest");
+				robot.setAction( &action_balance );
 				break;
 
 		/*        
@@ -891,18 +896,46 @@ void IRMenu()
 				SetQuickAction(button-BUTTON_NUM_0);
 				break;
 			case BUTTON_RIGHT:
-				action_spin_100ms.direction = CW;
-				robot.setAction( &action_spin_100ms );
+				if (robot.paction == &action_balance)
+				{
+					action_balance.turn(CW,20);
+				}
+				else
+				{
+					action_spin_100ms.direction = CW;
+					robot.setAction( &action_spin_100ms );
+				}
 				break;
 			case BUTTON_LEFT:
-				action_spin_100ms.direction = CCW;
-				robot.setAction( &action_spin_100ms );
+				if (robot.paction == &action_balance)
+				{
+					action_balance.turn(CCW,20);
+				}
+				else
+				{
+					action_spin_100ms.direction = CCW;
+					robot.setAction( &action_spin_100ms );
+				}
 				break;
 			case BUTTON_UP:
-				robot.setAction( &action_forward_med );
+				if (robot.paction == &action_balance)
+				{
+					action_balance.move(-1.5);
+				}
+				else
+				{
+					robot.setAction( &action_forward_med );
+				}
 				break;
 			case BUTTON_DOWN:
-				robot.setAction( &action_reverse_med );
+				if (robot.paction == &action_balance)
+				{
+					action_balance.move(1.5);
+				}
+				else
+				{
+					robot.setAction( &action_reverse_med );
+				}
 				break;
 			case BUTTON_NEXT:
 				action_spin_45deg.direction = CW;

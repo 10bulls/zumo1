@@ -132,5 +132,29 @@ void robot_boundary(unsigned long d )
 	Robot::BOT->setAction(&pybot_boundary_action);
 }
 
+extern ActionBalance action_balance;
+
+void balance_pid( float Kp, float Ki, float Kd, float target )
+{
+	if (target==0)
+		target = action_balance.pitch_target;
+
+	Robot::BOT->sout->print("Kp=");
+	Robot::BOT->sout->print(Kp);
+	Robot::BOT->sout->print(", Ki=");
+	Robot::BOT->sout->print(Ki);
+	Robot::BOT->sout->print(", Kd=");
+	Robot::BOT->sout->print(Kd);
+	Robot::BOT->sout->print(", pitch=");
+	Robot::BOT->sout->println(target);
+
+
+	action_balance.Kp = Kp;
+	action_balance.Ki = Ki;
+	action_balance.Kd = Kd;
+	action_balance.pitch_target = target;
+}
+
+
 
 }

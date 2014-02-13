@@ -48,6 +48,7 @@ void robot_scan2(boolean dir, float degree, int pwm, float distance, unsigned lo
 void robot_set_heading(float heading, unsigned long d );
 void robot_line_follow(unsigned long d );
 void robot_boundary(unsigned long d );
+void balance_pid( float Kp, float Ki, float Kd, float target );
 
 // prototypes from sdfileio.cpp
 void stdout_print_strn_serial(void *data, const char *str, unsigned int len);
@@ -302,6 +303,39 @@ mp_obj_t pybot_boundary(uint n_args, const mp_obj_t *args)
 	robot_boundary( duration );
     return mp_const_none;
 }
+
+mp_obj_t pybot_balance_pid(uint n_args, const mp_obj_t *args)
+{
+	if (n_args < 3 || n_args > 4)
+	{
+		printf("pid(Kp,Ki,Kd,target)\n");
+	}
+	else
+	{
+		nlr_buf_t nlr;
+		if (nlr_push(&nlr) == 0) 
+		{
+			float Kp = mp_obj_get_float(args[0]);
+			float Ki = mp_obj_get_float(args[1]);
+			float Kd = mp_obj_get_float(args[2]);
+			float target = 0;
+			if (n_args == 4)
+				target = mp_obj_get_float(args[3]);
+			balance_pid(Kp,Ki,Kd,target);
+			nlr_pop();
+		}
+		else 
+		{
+			// uncaught exception
+			mp_obj_print_exception((mp_obj_t)nlr.ret_val);
+			return false;
+		}
+	}
+    return mp_const_none;
+}
+
+
+
 
 
 static const char *help_text = "Hi!\n";
@@ -1245,6 +1279,7 @@ void python_setup(void)
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("head"), rt_make_function_var(0,pybot_set_heading));
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("line"), rt_make_function_var(0,pybot_line_follow));
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("boundary"), rt_make_function_var(0,pybot_boundary));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("pid"), rt_make_function_var(0,pybot_balance_pid));
 		rt_store_name(QSTR_FROM_STR_STATIC("robot"), bot);
     }
 }
