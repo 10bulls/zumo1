@@ -63,6 +63,8 @@ void stdout_print_strn_serial3(void *data, const char *str, unsigned int len);
 void sd_dir(const char * path);
 void sd_type(const char * path);
 void sd_hex_dump(const char * path);
+void * cpp_lexer_new_from_file(const char *filename);
+int cpp_import_stat(char *filename);
 
 // prototypes from xmodem.cpp
 void xmode_receive( const char * filename );
@@ -540,8 +542,7 @@ mp_obj_t pyb_gpio(uint n_args, mp_obj_t *args) {
     return mp_const_none;
 
 pin_error:
-    nlr_jump(mp_obj_new_exception_msg_varg(MP_QSTR_ValueError, "pin %d does not exist", (void *)(machine_uint_t)pin));
-//	nlr_jump(mp_obj_new_exception_msg_1_arg(MP_QSTR_ValueError, "pin %s does not exist", pin_name));
+    nlr_jump(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "pin %d does not exist", (void *)(machine_uint_t)pin));
 }
 
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(pyb_gpio_obj, 1, 2, pyb_gpio);
@@ -952,26 +953,6 @@ void * cpp_lexer_new_from_file(const char *filename);
 int cpp_file_buf_next_char(void *vfb);
 int cpp_import_stat(char *filename);
 
-mp_lexer_t *my_lexer_new_from_file(const char *filename) 
-{
-	void * fb = cpp_lexer_new_from_file(filename);
-#if 0
-    mp_lexer_file_buf_t *fb = m_new_obj(mp_lexer_file_buf_t);
-    FRESULT res = f_open(&fb->fp, filename, FA_READ);
-    if (res != FR_OK) {
-        m_del_obj(mp_lexer_file_buf_t, fb);
-        return NULL;
-    }
-    UINT n;
-    f_read(&fb->fp, fb->buf, sizeof(fb->buf), &n);
-    fb->len = n;
-    fb->pos = 0;
-    return mp_lexer_new(qstr_from_str(filename), fb, (mp_lexer_stream_next_char_t)file_buf_next_char, (mp_lexer_stream_close_t)file_buf_close);
-#endif
-	if (!fb) return NULL;
-	return mp_lexer_new(qstr_from_str(filename), fb, (mp_lexer_stream_next_char_t)cpp_file_buf_next_char, (mp_lexer_stream_close_t)cpp_file_buf_close);
-}
-
 bool parse_compile_execute(mp_lexer_t *lex, mp_parse_input_kind_t input_kind, bool is_repl) {
     mp_parse_error_kind_t parse_error_kind;
     mp_parse_node_t pn = mp_parse(lex, input_kind, &parse_error_kind);
@@ -1042,7 +1023,7 @@ bool parse_compile_execute(mp_lexer_t *lex, mp_parse_input_kind_t input_kind, bo
 
 bool do_file(const char *filename) {
 
-    mp_lexer_t *lex = my_lexer_new_from_file(filename);
+    mp_lexer_t *lex = mp_lexer_new_from_file(filename);
 
     if (lex == NULL) {
         printf("could not open file '%s' for reading\n", filename);
@@ -1050,42 +1031,6 @@ bool do_file(const char *filename) {
     }
 
 	return parse_compile_execute(lex, MP_PARSE_FILE_INPUT, false);
-
-#if 0
-
-    qstr parse_exc_id;
-    const char *parse_exc_msg;
-    mp_parse_node_t pn = mp_parse(lex, MP_PARSE_FILE_INPUT, &parse_exc_id, &parse_exc_msg);
-    qstr source_name = mp_lexer_source_name(lex);
-
-    if (pn == MP_PARSE_NODE_NULL) {
-        // parse error
-        mp_lexer_show_error_pythonic_prefix(lex);
-        printf("%s: %s\n", qstr_str(parse_exc_id), parse_exc_msg);
-        mp_lexer_free(lex);
-        return false;
-    }
-
-    mp_lexer_free(lex);
-
-    mp_obj_t module_fun = mp_compile(pn, source_name, false);
-    mp_parse_node_free(pn);
-
-    if (module_fun == mp_const_none) {
-        return false;
-    }
-
-    nlr_buf_t nlr;
-    if (nlr_push(&nlr) == 0) {
-        rt_call_function_0(module_fun);
-        nlr_pop();
-        return true;
-    } else {
-        // uncaught exception
-        mp_obj_print_exception((mp_obj_t)nlr.ret_val);
-        return false;
-    }
-#endif
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -1452,14 +1397,3 @@ mp_lexer_t *mp_lexer_new_from_file(const char *filename)
 	if (!fb) return NULL;
 	return mp_lexer_new(qstr_from_str(filename), fb, (mp_lexer_stream_next_char_t)cpp_file_buf_next_char, (mp_lexer_stream_close_t)cpp_file_buf_close);
 }
-
-
-
-// STATIC
-mp_obj_t mp_builtin_millis(void) 
-{
-	return mp_obj_new_int((int)millis());
-}
-MP_DEFINE_CONST_FUN_OBJ_0(mp_builtin_millis_obj, mp_builtin_millis);
-
-
