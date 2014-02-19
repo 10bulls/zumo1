@@ -65,9 +65,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="pins.txt" />
+    <None Include="py\ACTION.PY" />
     <None Include="py\BOOT.PY" />
     <None Include="py\BOX.PY" />
+    <None Include="py\EXPLORE.PY" />
     <None Include="py\REPEL.PY" />
+    <None Include="py\TEST.PY" />
     <None Include="py\TESTACTION.PY" />
     <None Include="zmodem.h" />
     <None Include="zumo1.ino">

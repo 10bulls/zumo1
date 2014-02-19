@@ -225,4 +225,24 @@ void * cpp_lexer_new_from_file(const char *filename)
 	return (void*)fb;
 }
 
+int cpp_import_stat(char *filename)
+{
+	// TODO: naughty hard coding in enums
+	int ret = 0;
+	if (SD.exists(filename))
+	{
+		File f = SD.open(filename);
+		if (f.isDirectory())
+		{
+			ret = 1;
+		}
+		else
+		{
+			ret = 2;
+		}
+		f.close();
+	}
+	return ret;
+}
+
 } // extern "C" 

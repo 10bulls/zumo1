@@ -1,3 +1,5 @@
+from pyb import *
+
 CW=0
 CCW=1
 FORWARD=0
@@ -5,10 +7,12 @@ REVERSE=1
 
 print("huh huh, 'Bottom!'")
 
-def saybottom():
-	print("'Bottom!', huh huh...")
+def do_nothing():
+    return
 
-def sayTest():
-	print("TEST TEST TEST")
+robot.onEnd = do_nothing
 
-robot.doTest = saybottom
+print("Loading explore.py...")
+run("explore.py")
+
+# Press x or remote play to start explore

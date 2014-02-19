@@ -49,7 +49,9 @@ class Robot;
 // #define MOTOR_L_PWM  10
 #define MOTOR_L_PWM  4
 
-#define IR_FRONT   A9
+// #define IR_FRONT   A9
+#define PROXIMITY_L   A16
+#define PROXIMITY_R   A15
 
 //int distance_target_l = 0;
 //int distance_target_r = 0;
@@ -106,7 +108,8 @@ ZumoReflectanceSensorArray reflectanceSensors;
 
 L3G gyro;
 LSM303 compass;
-SharpIR sharpIR(IR_FRONT);
+SharpIR sharpIR_L(PROXIMITY_L);
+SharpIR sharpIR_R(PROXIMITY_R);
 RobotIMU imu(&compass, &gyro);
 
 boolean dump_imu = false;
@@ -116,7 +119,7 @@ boolean dump_imu = false;
 RobotMotor motor_left( MOTOR_L_PWM, MOTOR_L_DIR );
 RobotMotor motor_right( MOTOR_R_PWM, MOTOR_R_DIR );
 
-RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR, &reflectanceSensors );
+RobotTank robot(&motor_left, &motor_right, &imu, &sharpIR_L, &sharpIR_R, &reflectanceSensors );
 
 #include "RobotAction.h"
 
@@ -146,8 +149,10 @@ ActionScan action_scan_rove(CW,34,SPEED_SLOW,3000);
 ActionMove action_forward_rove(FORWARD,SPEED_MED,15, 5000);
 
 ActionScan2 action_scan2(CW,180,SPEED_MED,30,3000);
-ActionScan2 action_scan2_rove(CW,180,SPEED_MED,30,3000);
-ActionMove action_forward_rove2(FORWARD,SPEED_MED,15, 5000);
+// ActionScan2 action_scan2_rove(CW,180,SPEED_MED,30,3000);
+ActionScan2 action_scan2_rove(CW,180,SPEED_FAST,30,3000);
+// ActionMove action_forward_rove2(FORWARD,SPEED_MED,15, 5000);
+ActionMove action_forward_rove2(FORWARD,SPEED_FAST,15, 5000);
 
 ActionScan2 action_scan2_ccw(CCW,180,SPEED_MED,30,3000);
 ActionScan2 action_scan2_rove_ccw(CCW,180,SPEED_MED,30,3000);
@@ -319,7 +324,8 @@ void setup()
 	robot.setup();
   
 	//  analogReference(EXTERNAL);
-	pinMode( IR_FRONT, INPUT );
+	pinMode( PROXIMITY_L, INPUT );
+	pinMode( PROXIMITY_R, INPUT );
 	pinMode( A1, INPUT );
 	pinMode( A3, INPUT );
   
@@ -446,7 +452,8 @@ void loop()
 	}
  
 	// Read IR sensor
-	robot.proximity->read();
+	robot.proximityL->read();
+	robot.proximityR->read();
 
 	if (robot.paction)
 	{
@@ -778,8 +785,8 @@ void parse_serial_buffer(char * sbuff)
 
 			case 'x':
 				// python_test_call();
-				// python_robot_event("doTest");
-				robot.setAction( &action_balance );
+				python_robot_event("doTest");
+				// robot.setAction( &action_balance );
 				break;
 
 		/*        
@@ -946,10 +953,13 @@ void IRMenu()
 				robot.setAction( &action_spin_45deg );
 				break;
 			case BUTTON_PLAY:
+				/*
 				imu.log_max = false;
 				robot.sout->println("IMU");      
 				delay(100);
 				imu.StartTimer(10);
+				*/
+				python_robot_event("doTest");
 				break;
 			case BUTTON_REC:
 				imu.log_max = true;

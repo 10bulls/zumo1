@@ -1,3 +1,5 @@
+import builtins
+
 CW=0
 CCW=1
 FORWARD=0
@@ -7,19 +9,19 @@ turn90 = 86
 movepwm = 100
 
 def mForward():
-	global movepwm
-	global FORWARD
-	robot.move(FORWARD,movepwm,0,500)
+    global movepwm
+    global FORWARD
+    robot.move(FORWARD,movepwm,0,500)
 
 def mTurn():
-	global turn90
-	global movepwm
-	global CW
-	robot.spin(CW,turn90,movepwm,2000)
+    global turn90
+    global movepwm
+    global CW
+    robot.spin(CW,turn90,movepwm,2000)
 
 def mFinished():
-	global nmove
-	robot.rest()
+    global nmove
+    robot.rest()
 
 nmove = -1
 

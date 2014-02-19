@@ -6,6 +6,11 @@
 
 extern "C" {
 
+int cpp_random( int rmin, int rmax )
+{
+	return random(rmin,rmax);
+}
+
 void robot_move_pwm( int dir, int pwm )
 {
 	Robot::BOT->move_pwm(dir,pwm);
@@ -13,7 +18,7 @@ void robot_move_pwm( int dir, int pwm )
 
 void robot_spin_pwm( int dir, int pwm )
 {
-	Robot::BOT->move_pwm(dir,pwm);
+	Robot::BOT->spin_pwm(dir,pwm);
 }
 
 void robot_stop()
@@ -21,10 +26,32 @@ void robot_stop()
 	Robot::BOT->stop();
 }
 
+void robot_imu_start()
+{
+	Robot::BOT->imu->start();
+}
+
+void robot_imu_stop()
+{
+	Robot::BOT->imu->stop();
+}
+
+void robot_imu_loop()
+{
+	Robot::BOT->imu->loop();
+}
+
+float robot_imu_degrees()
+{
+	return Robot::BOT->imu->degrees;
+}
+
+
 int robot_proximity()
 {
 	// TODO: test and get float working
-	return (int)Robot::BOT->proximity->distance;
+	// return (int)Robot::BOT->proximity->distance;
+	return min(Robot::BOT->proximityL->distance,Robot::BOT->proximityR->distance);
 }
 
 // Python Action

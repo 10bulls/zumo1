@@ -24,14 +24,15 @@ class RobotAction;
 class Robot
 {
 public:
-	Robot(RobotIMU * pimu = 0, RobotProximity * pprox = 0, QTRSensorsRC * preflectance=0 )
+	Robot(RobotIMU * pimu = 0, RobotProximity * pproxL = 0, RobotProximity * pproxR = 0, QTRSensorsRC * preflectance=0 )
 	{
 		// Use bluetooth for output
 		// sout = &Serial3;
 		// Use USB for output
 		sout = &Serial;
 		imu = pimu;
-		proximity = pprox;
+		proximityL = pproxL;
+		proximityR = pproxR;
 		preflect = preflectance;
 		// Set a global robot pointer (should only be one)
 		BOT = this;
@@ -93,10 +94,12 @@ public:
 			sout->print("heading=");
 			sout->println(imu->getHeading());
 		}
-		if (proximity)
+		if (proximityL && proximityR)
 		{
-			sout->print("proximity=");
-			sout->println(proximity->read());
+			sout->print("proximity(L,R)=");
+			sout->print(proximityL->read());
+			sout->print(", ");
+			sout->println(proximityR->read());
 		}
 	}
 
@@ -104,7 +107,8 @@ public:
 
 	Stream *sout;
 	RobotIMU * imu;
-	RobotProximity * proximity;
+	RobotProximity * proximityL;
+	RobotProximity * proximityR;
 	QTRSensorsRC * preflect;
 	// hard code NUM_SENSORS=6 for now...
 	// int num_reflect_sensors=0;
@@ -121,7 +125,7 @@ public:
 class RobotTank : public Robot
 {
 public:
-	RobotTank(RobotMotor * lm, RobotMotor * rm, RobotIMU * pimu=0, RobotProximity * pprox=0, QTRSensorsRC * preflectance=0  ) : Robot(pimu, pprox, preflectance)
+	RobotTank(RobotMotor * lm, RobotMotor * rm, RobotIMU * pimu=0, RobotProximity * pproxL=0, RobotProximity * pproxR=0, QTRSensorsRC * preflectance=0  ) : Robot(pimu, pproxL, pproxR, preflectance)
 	{
 		motor_L = lm;
 		motor_R = rm;

@@ -9,10 +9,12 @@
 #include "misc.h"
 #include "mpconfig.h"
 #include "qstr.h"
+#include "misc.h"
 #include "lexer.h"
 #include "lexermemzip.h"
 #include "parse.h"
 #include "obj.h"
+#include "parsehelper.h"
 #include "compile.h"
 #include "runtime0.h"
 #include "runtime.h"
@@ -34,9 +36,14 @@
 bool do_file(const char *filename);
 
 // prototypes from pyrobot.cpp
+int cpp_random( int rmin, int rmax );
 void robot_move_pwm( int dir, int pwm );
 void robot_spin_pwm( int dir, int pwm );
 void robot_stop();
+void robot_imu_start();
+void robot_imu_stop();
+void robot_imu_loop();
+float robot_imu_degrees();
 int robot_proximity();
 void robot_set_python_action(mp_obj_t a);
 void robot_move( int direction, int pwm, float distance_target, unsigned long d );
@@ -92,6 +99,30 @@ mp_obj_t pybot_stop(void)
 {
 	robot_stop();
 	return mp_const_none;
+}
+
+mp_obj_t pybot_imu_start(void)
+{
+	robot_imu_start();
+	return mp_const_none;
+}
+
+mp_obj_t pybot_imu_stop(void)
+{
+	robot_imu_stop();
+	return mp_const_none;
+}
+
+mp_obj_t pybot_imu_loop(void)
+{
+	robot_imu_loop();
+	return mp_const_none;
+}
+
+mp_obj_t pybot_imu_degrees(void)
+{
+	float d = robot_imu_degrees();
+	return mp_obj_new_float(d);
 }
 
 mp_obj_t pybot_proximity(void)
@@ -489,7 +520,7 @@ static mp_obj_t pyb_gc(void) {
 
 MP_DEFINE_CONST_FUN_OBJ_0(pyb_gc_obj, pyb_gc);
 
-mp_obj_t pyb_gpio(int n_args, mp_obj_t *args) {
+mp_obj_t pyb_gpio(uint n_args, mp_obj_t *args) {
     //assert(1 <= n_args && n_args <= 2);
 
     uint pin = mp_obj_get_int(args[0]);
@@ -509,7 +540,7 @@ mp_obj_t pyb_gpio(int n_args, mp_obj_t *args) {
     return mp_const_none;
 
 pin_error:
-    nlr_jump(mp_obj_new_exception_msg_1_arg(MP_QSTR_ValueError, "pin %d does not exist", (void *)(machine_uint_t)pin));
+    nlr_jump(mp_obj_new_exception_msg_varg(MP_QSTR_ValueError, "pin %d does not exist", (void *)(machine_uint_t)pin));
 //	nlr_jump(mp_obj_new_exception_msg_1_arg(MP_QSTR_ValueError, "pin %s does not exist", pin_name));
 }
 
@@ -624,6 +655,37 @@ mp_obj_t pyb_hex_dump(mp_obj_t filename_obj)
     return mp_const_none;
 }
 
+mp_obj_t pyb_millis(void) 
+{
+	// TODO: unsigned long support?
+    return mp_obj_new_int((int)millis());
+}
+
+mp_obj_t pyb_micros(void) 
+{
+	// TODO: unsigned long support?
+    return mp_obj_new_int((int)micros());
+}
+
+mp_obj_t pyb_random(uint n_args, const mp_obj_t *args)
+{
+	//if (n_args == 0)
+	//{
+	//	return mp_obj_new_int((int)cpp_random());
+	//}
+	if (n_args == 1)
+	{
+		int rmax = mp_obj_get_int(args[0]);
+		return mp_obj_new_int((int)cpp_random(0,rmax));
+	}
+	if (n_args == 2)
+	{
+		int rmin = mp_obj_get_int(args[0]);
+		int rmax = mp_obj_get_int(args[1]);
+		return mp_obj_new_int((int)cpp_random(rmin,rmax));
+	}
+	return mp_const_none;
+}
 
 /*
 void stdout_print_strn_serial(void *data, const char *str, unsigned int len) 
@@ -888,6 +950,7 @@ int cpp_file_buf_next_char(void *fb);
 void cpp_file_buf_close(void *fb);
 void * cpp_lexer_new_from_file(const char *filename);
 int cpp_file_buf_next_char(void *vfb);
+int cpp_import_stat(char *filename);
 
 mp_lexer_t *my_lexer_new_from_file(const char *filename) 
 {
@@ -909,6 +972,73 @@ mp_lexer_t *my_lexer_new_from_file(const char *filename)
 	return mp_lexer_new(qstr_from_str(filename), fb, (mp_lexer_stream_next_char_t)cpp_file_buf_next_char, (mp_lexer_stream_close_t)cpp_file_buf_close);
 }
 
+bool parse_compile_execute(mp_lexer_t *lex, mp_parse_input_kind_t input_kind, bool is_repl) {
+    mp_parse_error_kind_t parse_error_kind;
+    mp_parse_node_t pn = mp_parse(lex, input_kind, &parse_error_kind);
+    qstr source_name = mp_lexer_source_name(lex);
+
+    if (pn == MP_PARSE_NODE_NULL) {
+        // parse error
+        mp_parse_show_exception(lex, parse_error_kind);
+        mp_lexer_free(lex);
+        return false;
+    }
+
+    mp_lexer_free(lex);
+
+    mp_obj_t module_fun = mp_compile(pn, source_name, is_repl);
+    mp_parse_node_free(pn);
+
+    if (module_fun == mp_const_none) {
+        return false;
+    }
+
+    nlr_buf_t nlr;
+    bool ret;
+    //! uint32_t start = sys_tick_counter;
+	uint32_t start = millis();
+    if (nlr_push(&nlr) == 0) {
+        //! usb_vcp_set_interrupt_char(VCP_CHAR_CTRL_C); // allow ctrl-C to interrupt us
+        rt_call_function_0(module_fun);
+        //! usb_vcp_set_interrupt_char(VCP_CHAR_NONE); // disable interrupt
+        nlr_pop();
+        ret = true;
+    } else {
+        // uncaught exception
+        // FIXME it could be that an interrupt happens just before we disable it here
+        //! usb_vcp_set_interrupt_char(VCP_CHAR_NONE); // disable interrupt
+        mp_obj_print_exception((mp_obj_t)nlr.ret_val);
+        ret = false;
+    }
+
+    // display debugging info if wanted
+    if (is_repl && repl_display_debugging_info) {
+        //! uint32_t ticks = sys_tick_counter - start; // TODO implement a function that does this properly
+		uint32_t ticks = millis() - start; // TODO implement a function that does this properly
+        printf("took %lu ms\n", ticks);
+        gc_collect();
+        // qstr info
+        {
+            uint n_pool, n_qstr, n_str_data_bytes, n_total_bytes;
+            qstr_pool_info(&n_pool, &n_qstr, &n_str_data_bytes, &n_total_bytes);
+            printf("qstr:\n  n_pool=%u\n  n_qstr=%u\n  n_str_data_bytes=%u\n  n_total_bytes=%u\n", n_pool, n_qstr, n_str_data_bytes, n_total_bytes);
+        }
+
+        // GC info
+        {
+            gc_info_t info;
+            gc_info(&info);
+            printf("GC:\n");
+            printf("  %lu total\n", info.total);
+            printf("  %lu : %lu\n", info.used, info.free);
+            printf("  1=%lu 2=%lu m=%lu\n", info.num_1block, info.num_2block, info.max_block);
+        }
+    }
+
+    return ret;
+}
+
+
 
 bool do_file(const char *filename) {
 
@@ -918,6 +1048,10 @@ bool do_file(const char *filename) {
         printf("could not open file '%s' for reading\n", filename);
         return false;
     }
+
+	return parse_compile_execute(lex, MP_PARSE_FILE_INPUT, false);
+
+#if 0
 
     qstr parse_exc_id;
     const char *parse_exc_msg;
@@ -951,6 +1085,7 @@ bool do_file(const char *filename) {
         mp_obj_print_exception((mp_obj_t)nlr.ret_val);
         return false;
     }
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -1106,17 +1241,20 @@ void run_python_cmd_str( const char * cmd )
 		return;
 	}
 
-	qstr parse_exc_id;
-	const char *parse_exc_msg;
-	// mp_parse_node_t pn = mp_parse(lex, MP_PARSE_FILE_INPUT, &parse_exc_id, &parse_exc_msg);
-	mp_parse_node_t pn = mp_parse(lex, MP_PARSE_SINGLE_INPUT, &parse_exc_id, &parse_exc_msg);
+	//! qstr parse_exc_id;
+	//! const char *parse_exc_msg;
+	//! mp_parse_node_t pn = mp_parse(lex, MP_PARSE_SINGLE_INPUT, &parse_exc_id, &parse_exc_msg);
+	mp_parse_error_kind_t parse_error_kind;
+
+	mp_parse_node_t pn = mp_parse(lex, MP_PARSE_SINGLE_INPUT, &parse_error_kind);
 	qstr source_name = mp_lexer_source_name(lex);
 
 	if (pn == MP_PARSE_NODE_NULL) 
 	{
 		// parse error
-		mp_lexer_show_error_pythonic_prefix(lex);
-		printf("%s: %s\n", qstr_str(parse_exc_id), parse_exc_msg);
+		//! mp_lexer_show_error_pythonic_prefix(lex);
+		//! printf("%s: %s\n", qstr_str(parse_exc_id), parse_exc_msg);
+		mp_parse_show_exception(lex, parse_error_kind);
 		mp_lexer_free(lex);
 	}
 	else
@@ -1125,14 +1263,17 @@ void run_python_cmd_str( const char * cmd )
 		mp_lexer_free(lex);
         mp_obj_t module_fun = mp_compile(pn, source_name, true);
         mp_parse_node_free(pn);
-        if (module_fun != mp_const_none) {
+        if (module_fun != mp_const_none) 
+		{
             nlr_buf_t nlr;
-//!                uint32_t start = sys_tick_counter;
 			uint32_t start = millis();
-            if (nlr_push(&nlr) == 0) {
+            if (nlr_push(&nlr) == 0) 
+			{
                 rt_call_function_0(module_fun);
                 nlr_pop();
-            } else {
+            } 
+			else 
+			{
                 // uncaught exception
                 mp_obj_print_exception((mp_obj_t)nlr.ret_val);
             }
@@ -1189,15 +1330,20 @@ void do_repl(void) {
         }
 
         mp_lexer_t *lex = mp_lexer_new_from_str_len(MP_QSTR__lt_stdin_gt_, vstr_str(&line), vstr_len(&line), 0);
-        qstr parse_exc_id;
-        const char *parse_exc_msg;
-        mp_parse_node_t pn = mp_parse(lex, MP_PARSE_SINGLE_INPUT, &parse_exc_id, &parse_exc_msg);
+        //! qstr parse_exc_id;
+        //! const char *parse_exc_msg;
+		
+		mp_parse_error_kind_t parse_error_kind;
+
+        //! mp_parse_node_t pn = mp_parse(lex, MP_PARSE_SINGLE_INPUT, &parse_exc_id, &parse_exc_msg);
+		mp_parse_node_t pn = mp_parse(lex, MP_PARSE_SINGLE_INPUT, &parse_error_kind);
         qstr source_name = mp_lexer_source_name(lex);
 
         if (pn == MP_PARSE_NODE_NULL) {
             // parse error
-            mp_lexer_show_error_pythonic_prefix(lex);
-            printf("%s: %s\n", qstr_str(parse_exc_id), parse_exc_msg);
+            //mp_lexer_show_error_pythonic_prefix(lex);
+            //printf("%s: %s\n", qstr_str(parse_exc_id), parse_exc_msg);
+			mp_parse_show_exception(lex, parse_error_kind);
             mp_lexer_free(lex);
         } else {
             // parse okay
@@ -1242,29 +1388,29 @@ void python_setup(void)
     // add some functions to the python namespace
     {
         rt_store_name(QSTR_FROM_STR_STATIC("help"), rt_make_function_n(0,pyb_help));
-        mp_obj_t m = mp_obj_new_module(QSTR_FROM_STR_STATIC("pyb"));
+        
+		mp_obj_t m = mp_obj_new_module(QSTR_FROM_STR_STATIC("pyb"));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("info"), rt_make_function_n(0,pyb_info));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("source_dir"), rt_make_function_n(1,pyb_source_dir));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("main"), rt_make_function_n(1,pyb_main));
 //        rt_store_attr(m, QSTR_FROM_STR_STATIC("gc"), rt_make_function_n(0,pyb_gc));
 		rt_store_attr(m, MP_QSTR_gc, (mp_obj_t)&pyb_gc_obj);
-//        rt_store_attr(m, QSTR_FROM_STR_STATIC("delay"), rt_make_function_n(1,pyb_delay));
-//		rt_store_attr(m, MP_QSTR_delay, rt_make_function_n(1,pyb_delay));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("led"), rt_make_function_n(1,pyb_led));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("Led"), rt_make_function_n(1,pyb_Led));
         rt_store_attr(m, QSTR_FROM_STR_STATIC("gpio"), (mp_obj_t)&pyb_gpio_obj);
+        rt_store_attr(m,QSTR_FROM_STR_STATIC("run"), rt_make_function_n(1,pyb_run));
+		rt_store_attr(m,QSTR_FROM_STR_STATIC("ls"), rt_make_function_var(0,pyb_dir));
+		rt_store_attr(m,QSTR_FROM_STR_STATIC("rcv"), rt_make_function_n(1,pyb_receive));
+		rt_store_attr(m,QSTR_FROM_STR_STATIC("send"), rt_make_function_n(1,pyb_transmit));
+		rt_store_attr(m,QSTR_FROM_STR_STATIC("type"), rt_make_function_n(1,pyb_type));
+		rt_store_attr(m,QSTR_FROM_STR_STATIC("hex"), rt_make_function_n(1,pyb_hex_dump));
+		rt_store_attr(m,QSTR_FROM_STR_STATIC("millis"), rt_make_function_n(0,pyb_millis));
+		rt_store_attr(m,QSTR_FROM_STR_STATIC("micros"), rt_make_function_n(0,pyb_micros));
+		rt_store_attr(m,QSTR_FROM_STR_STATIC("random"), rt_make_function_var(0,pyb_random));
+		rt_store_attr(m,MP_QSTR_delay, rt_make_function_n(1,pyb_delay));
         rt_store_name(QSTR_FROM_STR_STATIC("pyb"), m);
-        rt_store_name(QSTR_FROM_STR_STATIC("run"), rt_make_function_n(1,pyb_run));
-		rt_store_name(QSTR_FROM_STR_STATIC("dir"), rt_make_function_var(0,pyb_dir));
-		// rt_store_name(QSTR_FROM_STR_STATIC("ttt"), rt_make_function_n(0,pyb_test_stdout));
-		rt_store_name(QSTR_FROM_STR_STATIC("rcv"), rt_make_function_n(1,pyb_receive));
-		rt_store_name(QSTR_FROM_STR_STATIC("send"), rt_make_function_n(1,pyb_transmit));
-		rt_store_name(QSTR_FROM_STR_STATIC("type"), rt_make_function_n(1,pyb_type));
-		rt_store_name(QSTR_FROM_STR_STATIC("hex"), rt_make_function_n(1,pyb_hex_dump));
-		rt_store_name(MP_QSTR_delay, rt_make_function_n(1,pyb_delay));
 
 		mp_obj_t bot = mp_obj_new_module(QSTR_FROM_STR_STATIC("robot"));
-		// move( dir, pwm, proximity, duration )
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("move_pwm"), rt_make_function_n(2,pybot_move_pwm));
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("spin_pwm"), rt_make_function_n(2,pybot_spin_pwm));
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("stop"), rt_make_function_n(0,pybot_stop));
@@ -1280,6 +1426,10 @@ void python_setup(void)
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("line"), rt_make_function_var(0,pybot_line_follow));
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("boundary"), rt_make_function_var(0,pybot_boundary));
 		rt_store_attr(bot, QSTR_FROM_STR_STATIC("pid"), rt_make_function_var(0,pybot_balance_pid));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("imu_start"), rt_make_function_n(0,pybot_imu_start));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("imu_stop"), rt_make_function_n(0,pybot_imu_stop));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("imu_loop"), rt_make_function_n(0,pybot_imu_loop));
+		rt_store_attr(bot, QSTR_FROM_STR_STATIC("imu_degrees"), rt_make_function_n(0,pybot_imu_degrees));
 		rt_store_name(QSTR_FROM_STR_STATIC("robot"), bot);
     }
 }
@@ -1289,4 +1439,27 @@ machine_float_t machine_sqrt(machine_float_t x) {
 	// return x;
 	return sqrtf(x);
 }
+
+mp_import_stat_t mp_import_stat(const char *path)
+{
+	return (mp_import_stat_t)cpp_import_stat((char*)path);
+}
+
+mp_lexer_t *mp_lexer_new_from_file(const char *filename)
+{
+	// TODO: get rid of mp_lexer_new_from_file
+	void * fb = cpp_lexer_new_from_file(filename);
+	if (!fb) return NULL;
+	return mp_lexer_new(qstr_from_str(filename), fb, (mp_lexer_stream_next_char_t)cpp_file_buf_next_char, (mp_lexer_stream_close_t)cpp_file_buf_close);
+}
+
+
+
+// STATIC
+mp_obj_t mp_builtin_millis(void) 
+{
+	return mp_obj_new_int((int)millis());
+}
+MP_DEFINE_CONST_FUN_OBJ_0(mp_builtin_millis_obj, mp_builtin_millis);
+
 

@@ -15,7 +15,7 @@ public:
   {
     pcompass = c;
     pgyro = g;
-    t=0;
+    time_us=0;
     v=0;
     d=0;
     log_max = false;
@@ -153,9 +153,8 @@ public:
 	}
 
 
+	unsigned long time_us;
 
-	unsigned long t;
-	float dt;
   
 	float v;  // velocity
 	float d;  // distance

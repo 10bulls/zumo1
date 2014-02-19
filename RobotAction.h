@@ -442,7 +442,9 @@ public:
                 // 2 = reverse spin
                 // 3 = original spin, stop at best proximity
                 
-    distance_max = bot->proximity->distance;                
+    // distance_max = bot->proximity->distance;
+	distance_max = max(bot->proximityL->distance,bot->proximityR->distance);
+
   }
 
   virtual boolean loop()
@@ -466,7 +468,9 @@ public:
 
     }
     
-    if (bot->proximity->distance >= distance_max)
+	float prox = max(bot->proximityL->distance,bot->proximityR->distance);
+
+    if (prox >= distance_max)
     {
       if (stage == 3)
       {
@@ -475,7 +479,7 @@ public:
       }
       else
       {
-        distance_max = bot->proximity->distance;
+        distance_max = prox;
       }
     }
 
@@ -511,16 +515,29 @@ public:
 
   virtual void start()
   {
-    ActionSpin::start();
     degree_ok = 0;
     distance_ok = false;
+
+	if (random(100) > 50)
+	{
+		direction  = CW;
+	}
+	else
+	{
+		direction  = CCW;
+	}
+
+	ActionSpin::start();
+
   }
 
   virtual boolean loop()
   {
     if (!ActionSpin::loop()) return false; 
     
-    if (bot->proximity->distance >= distance_target)
+	float prox = max(bot->proximityL->distance,bot->proximityR->distance);
+
+    if (prox >= distance_target)
     {
       if (distance_ok)
       {
@@ -582,7 +599,9 @@ public:
   {
     if (!RobotAction::loop()) return false;
     
-    if (bot->proximity->distance < distance_target) return false;
+	float prox = min(bot->proximityL->distance,bot->proximityR->distance);
+
+    if (prox < distance_target) return false;
     
     return true;
   }
@@ -631,12 +650,14 @@ public:
 
     // robot.sout->println(robot.proximity->distance);
   
-    if (bot->proximity->distance > 40 || bot->proximity->distance < 5 )
+	float prox = min(bot->proximityL->distance,bot->proximityR->distance);
+
+    if (prox > 40 || prox < 5 )
     {
       // error or really close to target
       bot->stop();
     }
-    else if (abs(bot->proximity->distance - distance_target) <= 1.0)
+    else if (abs(prox - distance_target) <= 1.0)
     {
       // where we want to be
       bot->stop();
@@ -644,7 +665,7 @@ public:
     else
     {
       boolean dir = FORWARD;
-      float diff = bot->proximity->distance - distance_target;
+      float diff = prox - distance_target;
       if (diff < 0) 
       {
         dir = REVERSE;

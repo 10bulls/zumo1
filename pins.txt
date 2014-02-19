@@ -27,14 +27,14 @@
 20 P A6			: Zumo buzzer
 21 P A7			: Reflectance #1
 22 P A8			: Reflectance #3
-23 P A9			: IR front proximity
+23 P A9			: (moved) IR front proximity
 
 --- <back>
 
 24				: Reflectance #6
 25 P			:
-26  A15			:
-27  A16			:
+26  A15			: IR Proximity (right)
+27  A16			: IR Proximity (left)
 28  A17			:
 29  A18			:
 30  A19			:

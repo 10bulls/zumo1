@@ -5,7 +5,6 @@ RobotIMU * RobotIMU::_timer_imu;
 void RobotIMU::start()
 {
 	degrees = 0;
-	t = millis();
 	v = 0;
 	d = 0;
 	a_avg = 0;
@@ -16,6 +15,7 @@ void RobotIMU::start()
 	buffer_overflow = false;
     
 	pcompass->read();
+	pgyro->read();
     
 	if (log_max)
 	{
@@ -26,12 +26,20 @@ void RobotIMU::start()
 		gmax = pgyro->g;
 		gmin = pgyro->g;
 	}
+
+	time_us = micros();
 }
 
 void RobotIMU::loop()
 {
 	pcompass->read();
 	pgyro->read();
+
+	unsigned long us = micros();
+	float dt = us - time_us;
+	time_us = us;
+	degrees += (pgyro->g.z - gzero.z) * 0.00875 * (float)dt / 1.0e6;
+
 	tbuff[buff_index] = millis();
 	abuff[buff_index] = pcompass->a;
 	mbuff[buff_index] = pcompass->m;
@@ -39,7 +47,7 @@ void RobotIMU::loop()
     
 	// 10 / 1000 for 10ms sample rate
 	// 
-	degrees += (gbuff[buff_index].z - gzero.z) * 0.00875 * 10.0 / 1000.0;
+	// degrees += (gbuff[buff_index].z - gzero.z) * 0.00875 * 10.0 / 1000.0;
     
 	if (log_max)
 	{
