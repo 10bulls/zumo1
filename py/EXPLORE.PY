@@ -17,7 +17,7 @@ REVERSE=1
 class ExploreAction(RobotAction):
     def __init__(self,duration):
         RobotAction.__init__(self,duration)
-        self.scan = ScanAction(CW,180,150,30,3000)
+        self.scan = ScanAction(CW,180,150,20,3000)
         self.move = MoveAction(CW,150,15,5000)
         # mode 
         #   0 = scan

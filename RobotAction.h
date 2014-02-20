@@ -273,7 +273,7 @@ public:
 		isample = 0;
 		samplesum = heading * NUM_SAMPLES;
 		for (int i=0;i<NUM_SAMPLES;i++) samples[i] = heading;
-
+		/*
 		bot->sout->print("heading");
 		bot->sout->print("\t");
 		bot->sout->print("error");
@@ -285,7 +285,7 @@ public:
 		bot->sout->print("pid");
 		bot->sout->print("\t");
 		bot->sout->println("speed_pwm");
-
+		*/
 		time_us = micros();
 
 	
@@ -356,6 +356,7 @@ public:
 
 			speed_pwm = constrain( speed_pwm + pid, -200, 200);
 
+			/*
 			bot->sout->print(heading);
 			bot->sout->print("\t");
 			bot->sout->print(error);
@@ -367,6 +368,7 @@ public:
 			bot->sout->print(pid);
 			bot->sout->print("\t");
 			bot->sout->println(speed_pwm);
+			*/
 
 			if (speed_pwm >= 0)
 				direction = CW;

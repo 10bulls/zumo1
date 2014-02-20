@@ -16,6 +16,16 @@ void robot_move_pwm( int dir, int pwm )
 	Robot::BOT->move_pwm(dir,pwm);
 }
 
+void robot_left_pwm( int dir, int pwm )
+{
+	Robot::BOT->left_pwm(dir,pwm);
+}
+
+void robot_right_pwm( int dir, int pwm )
+{
+	Robot::BOT->right_pwm(dir,pwm);
+}
+
 void robot_spin_pwm( int dir, int pwm )
 {
 	Robot::BOT->spin_pwm(dir,pwm);
@@ -46,13 +56,41 @@ float robot_imu_degrees()
 	return Robot::BOT->imu->degrees;
 }
 
-
-int robot_proximity()
+float robot_proximity(int sensor)
 {
 	// TODO: test and get float working
 	// return (int)Robot::BOT->proximity->distance;
-	return min(Robot::BOT->proximityL->distance,Robot::BOT->proximityR->distance);
+	if (sensor == 0)
+		return min(Robot::BOT->proximityL->distance,Robot::BOT->proximityR->distance);
+	else if (sensor == 1)
+		return Robot::BOT->proximityL->distance;
+	else if (sensor == 2)
+		return Robot::BOT->proximityR->distance;
+	// TODO: add more sensors
+	return 0;
 }
+
+void robot_reflect_read()
+{
+	return Robot::BOT->preflect->read(Robot::BOT->sensorValues);
+}
+
+int robot_reflect_num_sensors()
+{
+	return NUM_SENSORS;
+}
+
+int robot_reflect(int sensor)
+{
+	return Robot::BOT->sensorValues[sensor];
+}
+
+int robot_reflect_read_line(void)
+{
+	return Robot::BOT->preflect->readLine(Robot::BOT->sensorValues);
+}
+
+
 
 // Python Action
 PythonAction pybot_python_action;

@@ -52,7 +52,7 @@ class MoveAction(RobotAction):
         if (RobotAction._loop(self)==0):
             return 0
         # TODO: make use of L & R proximity
-        prox = robot.proximity()
+        prox = robot.proximity(0)
         if (prox < self.distance_target):
             return 0
         # keep going
@@ -131,19 +131,28 @@ class ScanAction(SpinAction):
     def _start(self):
         self.distance_ok = 0
         self.degree_ok = 0
-        # randomise the initial direction
         # TODO: use proximity L,R to weight this perhaps?
-        if (pyb.random(100) > 50):
+        lprox = robot.proximity(1)
+        rprox = robot.proximity(2)
+
+        if (lprox < rprox):
             self.direction = CW
         else:
             self.direction = CCW
+
+        # randomise the initial direction
+        #if (pyb.random(100) > 50):
+            #self.direction = CW
+        #else:
+            #self.direction = CCW
+
         SpinAction._start(self)
 
     def _loop(self):
         if (SpinAction._loop(self) == 0): 
             return 0
         # TODO: make use of L & R proximity
-        prox = robot.proximity()
+        prox = robot.proximity(0)
         if (prox >= self.distance_target):
             if (self.distance_ok):
                 # if been OK for 15? degrees, end action

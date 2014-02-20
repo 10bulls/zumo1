@@ -1,3 +1,5 @@
+import robot
+
 CW=0
 CCW=1
 FORWARD=0

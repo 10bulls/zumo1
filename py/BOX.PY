@@ -1,4 +1,5 @@
-import builtins
+# TODO ... turn this into a robot action
+import robot
 
 CW=0
 CCW=1
@@ -45,12 +46,11 @@ def nextMove():
 	if (nmove >= len(moves)): return 0
 	return 1
 
-robot.onEnd = nextMove
-
 def doBox():
-	global nmove
-	global moves
-	nmove = 0
-	nextMove()
+    robot.onEnd = nextMove
+    global nmove
+    global moves
+    nmove = 0
+    nextMove()
 
 robot.doTest = doBox

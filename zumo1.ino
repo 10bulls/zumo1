@@ -888,6 +888,12 @@ void IRMenu()
 		unsigned int button = IRButtonMap(results.value & 0x7ff);
 		//    robot.sout->println(button);
  
+		if (python_robot_event_p1_int("onButton", (int)button))
+		{
+			irrecv.resume(); // Receive the next value
+			return;
+		}
+
 		switch(button)
 		{
 			case BUTTON_NUM_0:

@@ -26,6 +26,7 @@ mp_obj_t find_python_object( const char * name );
 mp_obj_t find_python_attribute( mp_obj_t o, const char * attrib_name );
 mp_obj_t find_python_method( mp_obj_t o, const char * method_name );
 int python_call_method( mp_obj_t m, mp_obj_t fun );
+bool python_robot_event_p1_int(const char * handler, int p1 );
 
 #ifdef __cplusplus
 }
