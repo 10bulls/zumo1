@@ -5,3 +5,6 @@ zumo1.vcxproj.filters
 zumo1.vcxproj.user
 ipch/
 zumo1.opensdf
+.vs/
+__vm/
+Debug/
