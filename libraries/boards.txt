@@ -14,19 +14,30 @@ teensy31py.build.option1=-mthumb
 teensy31py.build.option2=-nodefaultlibs
 teensy31py.build.option3=-D__MK20DX256__
 teensy31py.build.option4=-DTEENSYDUINO=117
-# teensy31py.build.option5=-std=gnu99
+#
+# The following line is to get Arduino IDE working
+# TODO: Is there a better way to pass c only flags to Arduino IDE?
+#
+teensy31py.build.option5=-std=gnu99
 teensy31py.build.cppoption1=-fno-rtti
+#
+# The following only works with Visual Micro
+#
 teensy31py.build.coption1=-std=gnu99
 teensy31py.build.linkoption1=-mthumb 
-# use this for Visual Micro...
+#
+# These options are for use with Visual Micro...
+#
 teensy31py.build.linkoption2=-nodefaultlibs
-teensy31py.build.linkoption3=-L"C:\devt\arduino\micropython_vs\build"
+teensy31py.build.linkoption3=-L"C:\devt\arduino\libmpython\libraries"
 teensy31py.build.linkoption4=-lmpython
-#teensy31py.build.linkoption5=-L"C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\lib\gcc\arm-none-eabi\4.7.2\thumb2"
 teensy31py.build.linkoption5=-lgcc
-# use this for Arduino IDE...
-#teensy31py.build.additionalobject1=C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\arm-none-eabi\lib\libmpython.a
-#teensy31py.build.additionalobject1=-larm_cortexM4l_math
+#
+# The following lines are needed for the Arduino IDE...
+#
+teensy31py.build.additionalobject1=C:\devt\arduino\libmpython\libraries\libmpython.a
+teensy31py.build.additionalobject2=C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\lib\gcc\arm-none-eabi\4.7.2\thumb2\libgcc.a
+# teensy31py.build.additionalobject3=-larm_cortexM4l_math
 teensy31py.build.linkscript=mk20dx256py.ld
 teensy31py.build.architecture=arm-none-eabi
 teensy31py.build.command.gcc=arm-none-eabi-gcc
@@ -36,8 +47,6 @@ teensy31py.build.command.objcopy=arm-none-eabi-objcopy
 teensy31py.build.command.objdump=arm-none-eabi-objdump
 teensy31py.build.command.size=arm-none-eabi-size
 teensy31py.build.core=teensy3
-#teensy31py.build.default.link.options=-L C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\arm-none-eabi\lib -lmpython
-#teensy31py.build.default.link.options=-Os -Wl,--gc-sections -mcpu=cortex-m4 -L"%SOURCE_BUILD_PATH%\teensy31py" -L"C:\devt\arduino\arduino-1.0.5\hardware\tools\arm-none-eabi\arm-none-eabi\lib" -o "%SOURCE_BUILD_PATH%\%SKETCH%.elf"
 teensy31py.build.noarchive=true
 teensy31py.build.elide_constructors=true
 teensy31py.build.gnu0x=true

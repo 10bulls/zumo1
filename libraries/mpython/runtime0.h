@@ -1,10 +1,24 @@
+// taken from python source, Include/code.h
+#define MP_SCOPE_FLAG_OPTIMISED    0x01
+#define MP_SCOPE_FLAG_NEWLOCALS    0x02
+#define MP_SCOPE_FLAG_VARARGS      0x04
+#define MP_SCOPE_FLAG_VARKEYWORDS  0x08
+#define MP_SCOPE_FLAG_NESTED       0x10
+#define MP_SCOPE_FLAG_GENERATOR    0x20
+/* The MP_SCOPE_FLAG_NOFREE flag is set if there are no free or cell variables.
+   This information is redundant, but it allows a single flag test
+   to determine whether there is any extra work to be done when the
+   call frame is setup.
+*/
+#define MP_SCOPE_FLAG_NOFREE       0x40
+
 typedef enum {
     RT_UNARY_OP_BOOL, // __bool__
     RT_UNARY_OP_LEN, // __len__
     RT_UNARY_OP_POSITIVE,
     RT_UNARY_OP_NEGATIVE,
     RT_UNARY_OP_INVERT,
-    // Used only for CPython-compatible codegeneration
+    // these are not supported by the runtime and must be synthesised by the emitter
     RT_UNARY_OP_NOT,
 } rt_unary_op_t;
 
@@ -34,18 +48,19 @@ typedef enum {
     RT_BINARY_OP_INPLACE_TRUE_DIVIDE,
     RT_BINARY_OP_INPLACE_MODULO,
     RT_BINARY_OP_INPLACE_POWER,
-    // TODO probably should rename these COMPARE->BINARY
-    RT_COMPARE_OP_LESS,
-    RT_COMPARE_OP_MORE,
-    RT_COMPARE_OP_EQUAL,
-    RT_COMPARE_OP_LESS_EQUAL,
-    RT_COMPARE_OP_MORE_EQUAL,
-    RT_COMPARE_OP_NOT_EQUAL,
-    RT_COMPARE_OP_IN,
-    RT_COMPARE_OP_NOT_IN,
-    RT_COMPARE_OP_IS,
-    RT_COMPARE_OP_IS_NOT,
-    RT_COMPARE_OP_EXCEPTION_MATCH,
+    // these should return a bool
+    RT_BINARY_OP_LESS,
+    RT_BINARY_OP_MORE,
+    RT_BINARY_OP_EQUAL,
+    RT_BINARY_OP_LESS_EQUAL,
+    RT_BINARY_OP_MORE_EQUAL,
+    RT_BINARY_OP_NOT_EQUAL,
+    RT_BINARY_OP_IN,
+    RT_BINARY_OP_IS,
+    RT_BINARY_OP_EXCEPTION_MATCH,
+    // these are not supported by the runtime and must be synthesised by the emitter
+    RT_BINARY_OP_NOT_IN,
+    RT_BINARY_OP_IS_NOT,
 } rt_binary_op_t;
 
 typedef enum {
@@ -61,6 +76,7 @@ typedef enum {
     RT_F_STORE_SUBSCR,
     RT_F_IS_TRUE,
     RT_F_UNARY_OP,
+    RT_F_BINARY_OP,
     RT_F_BUILD_TUPLE,
     RT_F_BUILD_LIST,
     RT_F_LIST_APPEND,
@@ -69,9 +85,8 @@ typedef enum {
     RT_F_BUILD_SET,
     RT_F_STORE_SET,
     RT_F_MAKE_FUNCTION_FROM_ID,
-    RT_F_CALL_FUNCTION_N,
-    RT_F_CALL_METHOD_N,
-    RT_F_BINARY_OP,
+    RT_F_CALL_FUNCTION_N_KW_FOR_NATIVE,
+    RT_F_CALL_METHOD_N_KW,
     RT_F_GETITER,
     RT_F_ITERNEXT,
     RT_F_NUMBER_OF,
@@ -82,6 +97,6 @@ extern void *const rt_fun_table[RT_F_NUMBER_OF];
 void rt_init(void);
 void rt_deinit(void);
 uint rt_get_unique_code_id(void);
-void rt_assign_byte_code(uint unique_code_id, byte *code, uint len, int n_args, int n_locals, int n_stack, bool is_generator);
+void rt_assign_byte_code(uint unique_code_id, byte *code, uint len, int n_args, int n_locals, int n_stack, uint scope_flags, qstr *arg_names);
 void rt_assign_native_code(uint unique_code_id, void *f, uint len, int n_args);
 void rt_assign_inline_asm_code(uint unique_code_id, void *f, uint len, int n_args);

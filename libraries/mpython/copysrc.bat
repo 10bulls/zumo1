@@ -13,11 +13,12 @@ CALL :hcopy %src%\py\lexer.h
 CALL :hcopy %src%\py\misc.h
 CALL :hcopy %src%\py\mpconfig.h
 CALL :hcopy %src%\py\nlr.h
-CALL :hcopy %src%\py\map.h
-CALL :hcopy %src%\py\obj.h
+rem CALL :hcopy %src%\py\map.h
+rem CALL :hcopy %src%\py\obj.h
 CALL :hcopy %src%\py\parse.h
-CALL :hcopy %src%\py\qstr.h
-CALL :hcopy C:\devt\arduino\micropython_vs\build\py\qstrdefs.generated.h
+CALL :hcopy %src%\py\parsehelper.h
+rem CALL :hcopy %src%\py\qstr.h
+CALL :hcopy ..\..\build\py\qstrdefs.generated.h
 CALL :hcopy %src%\py\repl.h
 CALL :hcopy %src%\py\runtime.h
 CALL :hcopy %src%\py\runtime0.h
