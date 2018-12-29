@@ -7,7 +7,23 @@ This project makes use of a customised build of **micropython** for Teensy.
 This was added when micropython for Teensy was in early development as at 2014-02-19.
 Details for adding this library can be found [here](#micropython-for-teensy).
 
+- [Hardware part list](#hardware-part-list)
+- [Teensy 3.2](#teensy-3.2)
 
+## Actions
+
+| ID | Action |
+|----|------|
+| 0  | stop |
+| 1  | scan + rove |
+| 2  | repel |
+| 3  | scan |
+| 4  | fast spin |
+| 5  | heading |
+| 6  | scan2 + rove |
+| 7  | balance |
+| 8  | line follow |
+| 9  | stay in boundary |
 
 ## Hardware part list
 
