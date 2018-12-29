@@ -51,7 +51,8 @@ class Robot;
 
 // #define IR_FRONT   A9
 #define PROXIMITY_L   A16
-#define PROXIMITY_R   A15
+// #define PROXIMITY_R   A15
+#define PROXIMITY_R   A16
 
 //int distance_target_l = 0;
 //int distance_target_r = 0;

@@ -4,8 +4,8 @@ Firmware for Zumo and Teensy 3.1 based mini robot.
 [Main GIT repository](https://github.com/10bulls/zumo1)
 
 This project makes use of a customised build of **micropython** for Teensy.
-This was added when micropython for Teensy was in early development.  Details
-for adding this project can be found here.
+This was added when micropython for Teensy was in early development as at 2014-02-19.
+Details for adding this library can be found [here](#micropython-for-teensy).
 
 
 
@@ -40,7 +40,7 @@ Copy the _mpython_ folder to the arduino libaries folder.
 
 Add the contents of 'libraries/boards.txt' to the existing 'arduino/hardware/teensy/boards.txt'  
 **DO NOT REPLACE THE EXISTING ONE!**  
-This file contains hard coded paths that will need to be modified.
+This file contains hard coded paths to the location of **libmpython.a** that will need to be modified.
 
 Copy 'libraries/mk20dx256py.ld' to 'arduino/hardware/teensy/cores/teensy3'
 
