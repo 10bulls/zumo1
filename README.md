@@ -13,7 +13,7 @@ Details for adding this library can be found [here](#micropython-for-teensy).
 ## Actions
 
 | ID | Action |
-|----|------|
+| ---- |------ |
 | 0  | stop |
 | 1  | scan + rove |
 | 2  | repel |
