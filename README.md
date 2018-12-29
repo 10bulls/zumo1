@@ -9,8 +9,11 @@ Details for adding this library can be found [here](#micropython-for-teensy).
 
 - [Hardware part list](#hardware-part-list)
 - [Teensy 3.2](#teensy-3.2)
+- [Quick Actions](#actions)
 
 ## Actions
+
+Robot actions / behaviours linked to number buttons on IR remote.
 
 | ID | Action |
 | ---- |------ |
@@ -24,6 +27,49 @@ Details for adding this library can be found [here](#micropython-for-teensy).
 | 7  | balance |
 | 8  | line follow |
 | 9  | stay in boundary |
+
+## Commands
+
+Commands are sent via Serial (USB) or Serial3 (bluetooth).
+Default baud rate is 115200.
+
+The robot has three command line modes:
+
+### CMD_MODE_OS
+
+| Command | Action |
+| ---- |------ |
+| ?  | display diagnostic information |
+| /  | enters DRIVE command line mode |
+| >> | enters PYTHON command line mode |
+| > _(python)_ | runs a single python command |
+| > | spin 45 degrees clockwise |
+| < | spin 45 degrees counter clockwise |
+| a  | autonomous - enters scan + rove mode |
+| b  | backup - reverses |
+| c  | compass callibrate |
+| f  | move forward |
+| l##  | sets the left motor to the hex PWM value. minus value for reverse. |
+| r##  | sets the right motor to the hex PWM value. minus value for reverse. |
+| P##  | set the P value to the hex value |
+| I##  | set the I value to the hex value |
+| D##  | set the D value to the hex value |
+| m  | manual (rest) |
+| s  | stop (rest) |
+| u##  | set left distance target |
+| v##  | set right distance target |
+| w  | writes the reflectance, gyro and compass calibration values to EEPROM |
+| x  | calls the python function 'doTest()' |
+
+### CMD_MODE_PYTHON
+
+Command sent are processed by the python interpretter.
+
+Use << to exit python and return to OS mode.
+
+### CMD_MODE_DRIVE
+
+Drive the robot using cursor keys (without new lines).
 
 ## Hardware part list
 
