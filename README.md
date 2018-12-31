@@ -77,7 +77,7 @@ Drive the robot using cursor keys (without new lines).
 - [Teensy 3.2 microcontroller](#teensy-3.2)
 - IMU Pololu imu01b 
 - Micro-SD adafruit breakout 
-- bluetooth radio
+- HC-06 bluetooth radio
 - Sharp distance sensor
 - IR remote receiver
 

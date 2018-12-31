@@ -168,6 +168,8 @@ ActionAccelerometerTest accelerometer_test(500);
 
 ActionBalance action_balance;
 
+ActionDumpIMU action_dump_imu;
+
 //ActionPlaySong action_song;
 
 RobotAction * QuickActions []
@@ -786,8 +788,9 @@ void parse_serial_buffer(char * sbuff)
 
 			case 'x':
 				// python_test_call();
-				python_robot_event("doTest");
+				// python_robot_event("doTest");
 				// robot.setAction( &action_balance );
+				robot.setAction(&action_dump_imu);
 				break;
 
 		/*        

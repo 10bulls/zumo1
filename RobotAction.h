@@ -1237,4 +1237,62 @@ return true;
 	unsigned long steer_timer;
 };
 
+
+class ActionDumpIMU : public RobotAction
+{
+public:
+	ActionDumpIMU(unsigned long d = 0) : RobotAction(d)
+	{
+		yaw = 0;
+	}
+
+	virtual void start()
+	{
+		RobotAction::start();
+
+		bot->imu->start();
+		yaw = 0;
+		bot->imu->pgyro->read();
+		time_us = micros();
+	}
+
+	virtual boolean loop()
+	{
+		if (!RobotAction::loop()) return false;
+
+		bot->imu->loop();
+
+		// bot->imu->pcompass->read();
+		// bot->imu->pgyro->read();
+
+		unsigned long us = micros();
+
+		float dt = us - time_us;
+
+		time_us = us;
+
+		yaw += (bot->imu->pgyro->g.z - bot->imu->gzero.z) * 0.00875 * (float)dt / 1.0e6;
+
+		bot->sout->print(yaw);
+		bot->sout->print(" ");
+		bot->sout->print(bot->imu->pitch());
+		bot->sout->print(" ");
+		bot->sout->println(bot->imu->roll());
+
+		return true;
+	}
+
+	virtual void end()
+	{
+		RobotAction::end();
+	}
+
+	virtual void dump()
+	{
+	}
+
+	unsigned long time_us;
+	float yaw;
+};
+
 #endif
